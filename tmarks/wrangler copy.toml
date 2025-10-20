@@ -1,0 +1,30 @@
+name = "tmarks"
+compatibility_date = "2024-03-18"
+pages_build_output_dir = "dist"
+
+# This is the D1 database binding.
+# The 'binding' property is the name of the global variable that will be available in your code.
+# The 'database_name' is the name of the database in the Cloudflare dashboard.
+# The 'database_id' is the unique ID of the database.
+[[d1_databases]]
+binding = "DB"
+database_name = "tmarks-prod-db"
+database_id = "bdfa6639-e25d-4698-ad13-a4f95b8c4aa7"
+
+# KV namespaces
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "1e2548bb595b4233ab1eb40e0a528539"
+
+[[kv_namespaces]]
+binding = "PUBLIC_SHARE_KV"
+id = "5ccc9cd9d3a24123accd3670b7fb3b7a"
+
+# Environment variables
+[vars]
+ALLOW_REGISTRATION = "true"
+JWT_SECRET = "tmarks-super-secret-jwt-key-for-production-use-at-least-32-characters-long-2024"
+ENCRYPTION_KEY = "tmarks-encryption-key-32-chars-2024"
+ENVIRONMENT = "production"
+JWT_ACCESS_TOKEN_EXPIRES_IN = "365d"
+JWT_REFRESH_TOKEN_EXPIRES_IN = "365d"

@@ -1,0 +1,11 @@
+import type { Bookmark, BookmarkRow } from '../../lib/types'
+
+export function normalizeBookmark(row: BookmarkRow): Bookmark {
+  return {
+    ...row,
+    is_pinned: Boolean(row.is_pinned),
+    is_archived: Boolean(row.is_archived),
+    is_public: Boolean(row.is_public),
+    click_count: Number(row.click_count || 0),
+  }
+}

@@ -88,21 +88,6 @@ export const onRequestGet: PagesFunction<Env, string, AuthContext>[] = [
           break
       }
 
-      const bookmarkTrends = await db
-        .prepare(
-          `SELECT 
-            ${dateSelect},
-            COUNT(*) as count
-          FROM bookmarks
-          WHERE user_id = ? AND deleted_at IS NULL 
-            ${startDate ? `AND DATE(created_at) >= ?` : ''}
-            ${endDate ? `AND DATE(created_at) <= ?` : ''}
-          GROUP BY ${dateGroupBy}
-          ORDER BY date ASC`
-        )
-        .bind(userId, ...[startDate, endDate].filter(Boolean))
-        .all()
-
       // 7. 点击趋势 - 根据粒度动态分组
       let clickDateGroupBy = ''
       let clickDateSelect = ''

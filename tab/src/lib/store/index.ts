@@ -55,6 +55,9 @@ interface AppState {
   includeThumbnail: boolean;
   setIncludeThumbnail: (value: boolean) => void;
 
+  createSnapshot: boolean;
+  setCreateSnapshot: (value: boolean) => void;
+
   // Configuration
   config: StorageConfig | null;
   loadConfig: () => Promise<void>;
@@ -84,6 +87,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   lastRecommendationDurationMs: null,
   isPublic: true,
   includeThumbnail: false,
+  createSnapshot: false,
   config: null,
 
   // Setters
@@ -144,6 +148,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
   setIncludeThumbnail: (value) => set({ includeThumbnail: value }),
+
+  setCreateSnapshot: (value) => set({ createSnapshot: value }),
 
   // Tag management
   toggleTag: (tagName) =>
@@ -318,7 +324,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   saveBookmark: async () => {
-    const { currentPage, selectedTags, isPublic, includeThumbnail } = get();
+    const { currentPage, selectedTags, isPublic, includeThumbnail, createSnapshot } = get();
 
     if (!currentPage) {
       set({ error: 'No page info available' });
@@ -346,7 +352,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           description: currentPage.description,
           tags: selectedTags,
           thumbnail: includeThumbnail ? currentPage.thumbnail : undefined,
-          isPublic
+          isPublic,
+          createSnapshot
         }
       });
 

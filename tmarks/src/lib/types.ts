@@ -76,6 +76,9 @@ export interface Bookmark {
   is_public: boolean
   click_count: number
   last_clicked_at: string | null
+  has_snapshot: boolean
+  latest_snapshot_at: string | null
+  snapshot_count?: number
   created_at: string
   updated_at: string
   tags: Tag[]
@@ -163,6 +166,11 @@ export interface UserPreferences {
   enable_tag_selection_auto_clear: boolean
   // 默认书签图标
   default_bookmark_icon: DefaultBookmarkIcon
+  // 快照设置
+  snapshot_retention_count: number
+  snapshot_auto_create: boolean
+  snapshot_auto_dedupe: boolean
+  snapshot_auto_cleanup_days: number
   updated_at: string
 }
 

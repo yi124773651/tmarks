@@ -172,6 +172,7 @@ export interface BookmarkInput {
   thumbnail?: string;
   favicon?: string;
   isPublic?: boolean;
+  createSnapshot?: boolean;
 }
 
 // ============ Service Results ============

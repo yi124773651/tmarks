@@ -3,13 +3,14 @@ compatibility_date = "2024-03-18"
 pages_build_output_dir = ".deploy"
 
 # ⚠️ 重要说明：
-# D1 和 KV 资源绑定请在 Cloudflare Pages Dashboard 中配置
+# D1、KV 和 R2 资源绑定请在 Cloudflare Pages Dashboard 中配置
 # 路径：项目设置 → 函数 → 绑定
 #
 # 需要绑定的资源：
 # - D1 数据库：变量名 DB，选择数据库 tmarks-prod-db
 # - KV 命名空间：变量名 RATE_LIMIT_KV
 # - KV 命名空间：变量名 PUBLIC_SHARE_KV
+# - R2 存储桶：变量名 SNAPSHOTS，选择存储桶 tmarks-snapshots（用于网页快照）
 #
 # 这样配置的好处：
 # 1. 不需要在代码中暴露资源 ID

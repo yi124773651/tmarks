@@ -35,6 +35,8 @@ export function Popup() {
     setIncludeThumbnail,
     isPublic,
     setIsPublic,
+    createSnapshot,
+    setCreateSnapshot,
     lastRecommendationSource,
     lastSaveDurationMs
   } = useAppStore();
@@ -357,38 +359,26 @@ export function Popup() {
 
           {currentPage && (
             <section className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-lg">
-              <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-gray-800">可见性</p>
-                  <p className="text-[10px] text-gray-500">选择保存后的访问权限</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="inline-flex rounded-xl border border-gray-300 bg-gray-50 p-0.5 text-xs shadow-inner">
-                    <button
-                      type="button"
-                      onClick={() => setIsPublic(false)}
-                      aria-pressed={!isPublic}
-                      className={`rounded-lg px-3 py-1 font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 ${
-                        !isPublic
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-md'
-                          : 'text-gray-600 hover:text-gray-800'
-                      }`}
-                    >
-                      隐私
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsPublic(true)}
-                      aria-pressed={isPublic}
-                      className={`rounded-lg px-3 py-1 font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 ${
-                        isPublic
-                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md'
-                          : 'text-gray-600 hover:text-gray-800'
-                      }`}
-                    >
-                      公开
-                    </button>
-                  </div>
+              <div className="mb-2.5 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsPublic(!isPublic)}
+                    className={`rounded-lg border px-3 py-1 text-xs font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 ${
+                      isPublic
+                        ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-sm focus-visible:ring-emerald-300'
+                        : 'border-blue-400 bg-blue-50 text-blue-700 shadow-sm focus-visible:ring-blue-300'
+                    }`}
+                    title={isPublic ? '点击切换为隐私' : '点击切换为公开'}
+                  >
+                    <svg className="inline-block w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      {isPublic ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      )}
+                    </svg>
+                    {isPublic ? '公开' : '隐私'}
+                  </button>
 
                   <button
                     type="button"
@@ -402,7 +392,23 @@ export function Popup() {
                   >
                     {includeThumbnail ? '忽略封面图' : '恢复封面图'}
                   </button>
-                </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setCreateSnapshot(!createSnapshot)}
+                    className={`rounded-lg border px-3 py-1 text-xs font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 ${
+                      createSnapshot
+                        ? 'border-purple-400 bg-purple-50 text-purple-700 shadow-sm'
+                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                    title="保存网页快照"
+                  >
+                    <svg className="inline-block w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {createSnapshot ? '创建快照' : '不创建快照'}
+                  </button>
               </div>
               <div className="mb-2.5">
                 <div className="flex gap-2">

@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { ImageType } from '@/lib/image-utils'
 import { DefaultBookmarkIconComponent } from './DefaultBookmarkIcon'
 import { usePreferences } from '@/hooks/usePreferences'
+import { SnapshotViewer } from './SnapshotViewer'
 
 interface BookmarkCardViewProps {
   bookmarks: Bookmark[]
@@ -371,10 +372,20 @@ function BookmarkCard({
           </p>
         )}
 
-        {/* 标签 */}
-        {bookmark.tags && bookmark.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-1">
-            {bookmark.tags.slice(0, 4).map((tag) => (
+        {/* 标签和快照 */}
+        {(bookmark.tags && bookmark.tags.length > 0) || bookmark.has_snapshot ? (
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {/* 快照图标 */}
+            {bookmark.has_snapshot && (
+              <SnapshotViewer 
+                bookmarkId={bookmark.id} 
+                bookmarkTitle={bookmark.title}
+                snapshotCount={bookmark.snapshot_count || 0}
+              />
+            )}
+            
+            {/* 标签 */}
+            {bookmark.tags && bookmark.tags.slice(0, 4).map((tag) => (
               <span
                 key={tag.id}
                 className="text-xs sm:text-[11px] px-2.5 sm:px-2 py-1 sm:py-0.5 rounded-full bg-primary/10 text-primary"
@@ -382,13 +393,13 @@ function BookmarkCard({
                 {tag.name}
               </span>
             ))}
-            {bookmark.tags.length > 4 && (
+            {bookmark.tags && bookmark.tags.length > 4 && (
               <span className="text-xs sm:text-[11px] text-base-content/60 flex items-center px-1">
                 +{bookmark.tags.length - 4}
               </span>
             )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )

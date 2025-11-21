@@ -22,7 +22,7 @@ function getDefaultPreferences(): UserPreferences {
     user_id: '',
     theme: 'light',
     page_size: 30,
-    view_mode: storedViewMode || 'list',  // 使用 localStorage 中的值
+    view_mode: storedViewMode || 'list',
     density: 'normal',
     tag_layout: 'grid',
     sort_by: 'popular',
@@ -31,6 +31,10 @@ function getDefaultPreferences(): UserPreferences {
     enable_search_auto_clear: true,
     enable_tag_selection_auto_clear: false,
     default_bookmark_icon: 'bookmark',
+    snapshot_retention_count: 5,
+    snapshot_auto_create: false,
+    snapshot_auto_dedupe: true,
+    snapshot_auto_cleanup_days: 0,
     updated_at: new Date().toISOString(),
   }
 }

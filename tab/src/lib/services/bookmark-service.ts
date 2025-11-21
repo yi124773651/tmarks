@@ -32,6 +32,33 @@ export class BookmarkService {
         tags: bookmark.tags
       });
 
+      // 5. Create snapshot if requested
+      if (bookmark.createSnapshot && result.id) {
+        try {
+          // Get the current tab's HTML content
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tab && tab.id) {
+            // Import snapshot service dynamically
+            const { capturePageSnapshot } = await import('./snapshot-service');
+            
+            // Capture page HTML
+            const htmlContent = await capturePageSnapshot(tab.id);
+            
+            // Create snapshot via API
+            await bookmarkAPI.createSnapshot(result.id, {
+              html_content: htmlContent,
+              title: bookmark.title,
+              url: bookmark.url
+            });
+            
+            console.log('[BookmarkService] Snapshot created successfully');
+          }
+        } catch (snapshotError) {
+          console.error('[BookmarkService] Failed to create snapshot:', snapshotError);
+          // Don't fail the whole operation if snapshot creation fails
+        }
+      }
+
       return {
         success: true,
         bookmarkId: result.id

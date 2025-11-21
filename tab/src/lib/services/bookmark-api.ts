@@ -233,6 +233,31 @@ export class BookmarkAPIClient {
   }
 
   /**
+   * Create a snapshot for a bookmark
+   */
+  async createSnapshot(
+    bookmarkId: string,
+    data: {
+      html_content: string;
+      title: string;
+      url: string;
+    }
+  ): Promise<void> {
+    const client = await this.ensureClient();
+
+    try {
+      await client.snapshots.createSnapshot(bookmarkId, data);
+      console.log('[BookmarkAPI] Snapshot created successfully for bookmark:', bookmarkId);
+    } catch (error: any) {
+      throw new AppError(
+        'BOOKMARK_SITE_ERROR' as ErrorCode,
+        `Failed to create snapshot: ${error.message}`,
+        { originalError: error }
+      );
+    }
+  }
+
+  /**
    * Test API connection
    */
   async testConnection(): Promise<boolean> {

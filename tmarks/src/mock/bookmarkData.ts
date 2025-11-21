@@ -18,6 +18,9 @@ export const mockBookmarks: Bookmark[] = [
     is_public: true,
     click_count: 42,
     last_clicked_at: '2024-01-20T14:22:00Z',
+    has_snapshot: true,
+    latest_snapshot_at: '2024-01-20T10:30:00Z',
+    snapshot_count: 2,
     tags: [
       { id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479', name: 'React', color: '#61dafb' },
       { id: '550e8400-e29b-41d4-a716-446655440000', name: '前端开发', color: '#3b82f6' },
@@ -39,6 +42,9 @@ export const mockBookmarks: Bookmark[] = [
     is_public: true,
     click_count: 15,
     last_clicked_at: '2024-01-18T10:15:00Z',
+    has_snapshot: false,
+    latest_snapshot_at: null,
+    snapshot_count: 0,
     tags: [
       { id: '550e8400-e29b-41d4-a716-446655440000', name: '前端开发', color: '#3b82f6' },
       { id: '7ba7b810-9dad-11d1-80b4-00c04fd430c9', name: 'TypeScript', color: '#3178c6' },
@@ -60,6 +66,9 @@ export const mockBookmarks: Bookmark[] = [
     is_public: true,
     click_count: 42,
     last_clicked_at: '2024-01-20T14:22:00Z',
+    has_snapshot: true,
+    latest_snapshot_at: '2024-01-25T09:15:00Z',
+    snapshot_count: 1,
     tags: [
       { id: '8ca7b810-9dad-11d1-80b4-00c04fd430ca', name: '工具', color: '#8b5cf6' },
       { id: '9da7b810-9dad-11d1-80b4-00c04fd430cb', name: 'Git', color: '#f05032' },
@@ -81,6 +90,9 @@ export const mockBookmarks: Bookmark[] = [
     is_public: false,
     click_count: 15,
     last_clicked_at: '2024-01-18T10:15:00Z',
+    has_snapshot: false,
+    latest_snapshot_at: null,
+    snapshot_count: 0,
     tags: [
       { id: '6ba7b810-9dad-11d1-80b4-00c04fd430c8', name: '文档', color: '#10b981' },
       { id: '550e8400-e29b-41d4-a716-446655440000', name: '前端开发', color: '#3b82f6' },
@@ -103,6 +115,9 @@ export const mockBookmarks: Bookmark[] = [
     is_public: false,
     click_count: 15,
     last_clicked_at: '2024-01-18T10:15:00Z',
+    has_snapshot: false,
+    latest_snapshot_at: null,
+    snapshot_count: 0,
     tags: [
       { id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479', name: 'React', color: '#61dafb' },
       { id: '550e8400-e29b-41d4-a716-446655440000', name: '前端开发', color: '#3b82f6' },
@@ -125,6 +140,9 @@ export const mockBookmarks: Bookmark[] = [
     is_public: false,
     click_count: 15,
     last_clicked_at: '2024-01-18T10:15:00Z',
+    has_snapshot: false,
+    latest_snapshot_at: null,
+    snapshot_count: 0,
     tags: [
       { id: '8ca7b810-9dad-11d1-80b4-00c04fd430ca', name: '工具', color: '#8b5cf6' },
       { id: 'd2c7b810-9dad-11d1-80b4-00c04fd430d0', name: '社区', color: '#f59e0b' },
@@ -146,6 +164,9 @@ export const mockBookmarks: Bookmark[] = [
     is_public: false,
     click_count: 15,
     last_clicked_at: '2024-01-18T10:15:00Z',
+    has_snapshot: false,
+    latest_snapshot_at: null,
+    snapshot_count: 0,
     tags: [
       { id: '7ba7b810-9dad-11d1-80b4-00c04fd430c9', name: 'TypeScript', color: '#3178c6' },
       { id: '8ca7b810-9dad-11d1-80b4-00c04fd430ca', name: '工具', color: '#8b5cf6' },
@@ -167,6 +188,9 @@ export const mockBookmarks: Bookmark[] = [
     is_public: true,
     click_count: 42,
     last_clicked_at: '2024-01-20T14:22:00Z',
+    has_snapshot: true,
+    latest_snapshot_at: '2024-01-21T15:20:00Z',
+    snapshot_count: 3,
     tags: [
       { id: '550e8400-e29b-41d4-a716-446655440000', name: '前端开发', color: '#3b82f6' },
       { id: '8ca7b810-9dad-11d1-80b4-00c04fd430ca', name: '工具', color: '#8b5cf6' },
@@ -188,6 +212,9 @@ export const mockBookmarks: Bookmark[] = [
     is_public: false,
     click_count: 3,
     last_clicked_at: '2024-01-10T08:30:00Z',
+    has_snapshot: false,
+    latest_snapshot_at: null,
+    snapshot_count: 0,
     tags: [
       { id: '550e8400-e29b-41d4-a716-446655440000', name: '前端开发', color: '#3b82f6' },
       { id: 'bfc7b810-9dad-11d1-80b4-00c04fd430cd', name: 'CSS', color: '#1572b6' },
@@ -209,6 +236,9 @@ export const mockBookmarks: Bookmark[] = [
     is_public: true,
     click_count: 42,
     last_clicked_at: '2024-01-20T14:22:00Z',
+    has_snapshot: true,
+    latest_snapshot_at: '2024-01-24T06:40:00Z',
+    snapshot_count: 1,
     tags: [
       { id: 'f7c7b810-9dad-11d1-80b4-00c04fd430d5', name: 'AI', color: '#10a37f' },
       { id: 'f8c7b810-9dad-11d1-80b4-00c04fd430d6', name: '人工智能', color: '#6366f1' },

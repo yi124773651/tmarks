@@ -535,4 +535,51 @@ export class TMarksClient {
     const { user } = await this.getMe();
     return user.stats;
   }
+
+  // ========== 快照操作 ==========
+
+  /**
+   * 创建书签快照
+   */
+  async createSnapshot(
+    bookmarkId: string,
+    data: {
+      html_content: string;
+      title: string;
+      url: string;
+      force?: boolean;
+    }
+  ): Promise<{ snapshot: any }> {
+    return this.request(`/v1/bookmarks/${bookmarkId}/snapshots`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * 获取书签的快照列表
+   */
+  async getSnapshots(bookmarkId: string): Promise<{
+    snapshots: Array<{
+      id: string;
+      version: number;
+      file_size: number;
+      content_hash: string;
+      snapshot_title: string;
+      is_latest: boolean;
+      created_at: string;
+    }>;
+    total: number;
+  }> {
+    return this.request(`/v1/bookmarks/${bookmarkId}/snapshots`);
+  }
+
+  /**
+   * 删除快照
+   */
+  async deleteSnapshot(bookmarkId: string, snapshotId: string): Promise<void> {
+    await this.request(`/v1/bookmarks/${bookmarkId}/snapshots/${snapshotId}`, {
+      method: 'DELETE',
+    });
+  }
 }

@@ -11,8 +11,10 @@ function isValidViewMode(value: string | null): value is ViewMode {
 
 interface UseBookmarksEffectsProps {
   selectedTags: string[]
+  setSelectedTags: (tags: string[]) => void
   setDebouncedSelectedTags: (tags: string[]) => void
   searchKeyword: string
+  setSearchKeyword: (keyword: string) => void
   setDebouncedSearchKeyword: (keyword: string) => void
   setViewMode: (mode: ViewMode) => void
   setTagLayout: (layout: 'grid' | 'masonry') => void
@@ -29,8 +31,10 @@ interface UseBookmarksEffectsProps {
  */
 export function useBookmarksEffects({
   selectedTags,
+  setSelectedTags,
   setDebouncedSelectedTags,
   searchKeyword,
+  setSearchKeyword,
   setDebouncedSearchKeyword,
   setViewMode,
   setTagLayout,
@@ -115,6 +119,7 @@ export function useBookmarksEffects({
 
     if (enableAutoClear && selectedTags.length > 0) {
       autoCleanupTimerRef.current = setTimeout(() => {
+        setSelectedTags([])
         setDebouncedSelectedTags([])
       }, clearSeconds * 1000)
     }
@@ -125,7 +130,7 @@ export function useBookmarksEffects({
         autoCleanupTimerRef.current = null
       }
     }
-  }, [selectedTags, preferences, autoCleanupTimerRef, setDebouncedSelectedTags])
+  }, [selectedTags, preferences, autoCleanupTimerRef, setSelectedTags, setDebouncedSelectedTags])
 
   // 搜索自动清空
   useEffect(() => {
@@ -139,6 +144,7 @@ export function useBookmarksEffects({
 
     if (enableAutoClear && searchKeyword.trim()) {
       searchCleanupTimerRef.current = setTimeout(() => {
+        setSearchKeyword('')
         setDebouncedSearchKeyword('')
       }, clearSeconds * 1000)
     }
@@ -149,7 +155,7 @@ export function useBookmarksEffects({
         searchCleanupTimerRef.current = null
       }
     }
-  }, [searchKeyword, preferences, searchCleanupTimerRef, setDebouncedSearchKeyword])
+  }, [searchKeyword, preferences, searchCleanupTimerRef, setSearchKeyword, setDebouncedSearchKeyword])
 
   return {
     updatePreferences,

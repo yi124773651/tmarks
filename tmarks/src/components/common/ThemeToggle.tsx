@@ -6,8 +6,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="flex items-center justify-center w-8 h-8 rounded-lg transition-all hover:bg-primary/10"
-      style={{color: 'var(--foreground)'}}
+      className="btn btn-sm btn-ghost p-2"
       aria-label="切换主题"
       title={theme === 'light' ? '切换到暗色模式' : '切换到亮色模式'}
     >

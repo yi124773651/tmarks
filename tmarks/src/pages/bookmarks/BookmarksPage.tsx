@@ -59,8 +59,10 @@ export function BookmarksPage() {
   // 副作用管理
   const { updatePreferences } = useBookmarksEffects({
     selectedTags,
+    setSelectedTags,
     setDebouncedSelectedTags,
     searchKeyword,
+    setSearchKeyword,
     setDebouncedSearchKeyword,
     setViewMode,
     setTagLayout,

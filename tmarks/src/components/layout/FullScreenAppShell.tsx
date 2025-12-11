@@ -60,14 +60,13 @@ export function FullScreenAppShell() {
             {/* 书签/标签页组切换按钮 */}
             <button
               onClick={handleToggleView}
-              className="hidden sm:flex items-center justify-center w-10 h-10 rounded-lg border border-border hover:border-primary hover:bg-card/50 transition-all duration-200"
-              style={{color: 'var(--foreground)'}}
+              className="hidden sm:flex btn btn-sm btn-ghost p-2"
               title={isOnTabGroupsPage ? '切换到书签' : '切换到标签页组'}
             >
               {isOnTabGroupsPage ? (
-                <BookOpen className="w-5 h-5" />
+                <BookOpen className="w-4 h-4" />
               ) : (
-                <Layers className="w-5 h-5" />
+                <Layers className="w-4 h-4" />
               )}
             </button>
 
@@ -78,11 +77,10 @@ export function FullScreenAppShell() {
             {user && (
               <button
                 onClick={() => navigate('/settings/general')}
-                className="px-3 py-2 rounded-lg border border-border hover:border-primary hover:bg-card/50 transition-all duration-200 flex items-center justify-center gap-2"
-                style={{color: 'var(--foreground)'}}
+                className="btn btn-sm btn-ghost p-2"
                 title={`${user.username} - 点击进入设置`}
               >
-                <User className="w-5 h-5" />
+                <User className="w-4 h-4" />
               </button>
             )}
           </div>

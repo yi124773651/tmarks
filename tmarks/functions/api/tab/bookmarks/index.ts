@@ -199,11 +199,14 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
     try {
       const body = (await context.request.json()) as CreateBookmarkRequest
 
+      console.log('[Bookmarks POST] ========== REQUEST DEBUG ==========')
       console.log('[Bookmarks POST] Request body keys:', Object.keys(body))
       console.log('[Bookmarks POST] Has bookmarks array:', !!body.bookmarks)
       console.log('[Bookmarks POST] Bookmarks length:', body.bookmarks?.length)
       console.log('[Bookmarks POST] Body type:', typeof body)
       console.log('[Bookmarks POST] Is array:', Array.isArray(body))
+      console.log('[Bookmarks POST] Full body:', JSON.stringify(body).substring(0, 500))
+      console.log('[Bookmarks POST] ==========================================')
 
       // 检测是否为批量创建请求
       if (body.bookmarks && Array.isArray(body.bookmarks)) {
@@ -217,6 +220,9 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
       }
 
       console.log('[Bookmarks POST] Processing single bookmark')
+      console.log('[Bookmarks POST] body.title:', body.title)
+      console.log('[Bookmarks POST] body.url:', body.url)
+      
       // 单个书签创建逻辑
       if (!body.title || !body.url) {
         console.log('[Bookmarks POST] Missing title or URL')
@@ -229,7 +235,9 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
             hasBookmarks: !!body.bookmarks,
             bodyKeys: Object.keys(body),
             bodyType: typeof body,
-            isArray: Array.isArray(body)
+            isArray: Array.isArray(body),
+            title: body.title,
+            url: body.url
           }
         })
       }

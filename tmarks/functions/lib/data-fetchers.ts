@@ -9,7 +9,8 @@ export async function fetchFullBookmarks(
   const bookmarkIds = rows.map(r => r.id)
   if (bookmarkIds.length === 0) return []
 
-  // 获取这些书签的所有标签关�?  const { results: tagRelations } = await db
+  // Fetch all tag relations for these bookmarks
+  const { results: tagRelations } = await db
     .prepare(
       `SELECT bt.bookmark_id, t.id, t.name, t.color
        FROM bookmark_tags bt
@@ -19,7 +20,8 @@ export async function fetchFullBookmarks(
     .bind(...bookmarkIds, userId)
     .all<{ bookmark_id: string; id: string; name: string; color: string }>()
 
-  // 组装最终结�?  return rows.map(row => {
+  // Assemble final results
+  return rows.map(row => {
     const tags = tagRelations
       .filter(tr => tr.bookmark_id === row.id)
       .map(tr => ({
@@ -30,15 +32,23 @@ export async function fetchFullBookmarks(
 
     return {
       id: row.id,
+      user_id: row.user_id,
       title: row.title,
       url: row.url,
       description: row.description,
-      ai_summary: row.ai_summary,
-      thumbnail_url: row.thumbnail_url,
-      favicon_url: row.favicon_url,
+      cover_image: row.cover_image,
+      favicon: row.favicon,
+      is_pinned: Boolean(row.is_pinned),
+      is_archived: Boolean(row.is_archived),
       is_public: Boolean(row.is_public),
+      click_count: row.click_count,
+      last_clicked_at: row.last_clicked_at,
+      has_snapshot: row.has_snapshot,
+      latest_snapshot_at: row.latest_snapshot_at,
+      snapshot_count: row.snapshot_count,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      deleted_at: row.deleted_at,
       tags,
     }
   })

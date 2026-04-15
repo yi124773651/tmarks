@@ -37,9 +37,9 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const conditionParams: SQLParam[] = []
 
       if (keyword) {
-        conditions.push('(b.title LIKE ? OR b.description LIKE ? OR b.url LIKE ? OR b.ai_summary LIKE ?)')
+        conditions.push('(b.title LIKE ? OR b.description LIKE ? OR b.url LIKE ?)')
         const searchPattern = `%${keyword}%`
-        conditionParams.push(searchPattern, searchPattern, searchPattern, searchPattern)
+        conditionParams.push(searchPattern, searchPattern, searchPattern)
       }
 
       if (tagIds && tagIds.length > 0) {

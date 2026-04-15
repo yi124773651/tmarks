@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Archive, RotateCcw, Trash2, Calendar, Layers, ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { tabGroupsService } from '@/services/tab-groups'
-import type { TabGroup } from '@/lib/types'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN, enUS } from 'date-fns/locale'
-import { useToastStore } from '@/stores/toastStore'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
-import { logger } from '@/lib/logger'
-import { useIsMobile } from '@/hooks/useMediaQuery'
-import { MobileHeader } from '@/components/common/MobileHeader'
 import { BottomNav } from '@/components/common/BottomNav'
+import { MobileHeader } from '@/components/common/MobileHeader'
+import { useIsMobile } from '@/hooks/useMediaQuery'
+import { useTabGroupsTrashQuery, useInvalidateTabGroups } from '@/hooks/useTabGroupsQuery'
+import { tabGroupsService } from '@/services/tab-groups'
+import { useToastStore } from '@/stores/toastStore'
+import { logger } from '@/lib/logger'
 
 export function TrashPage() {
   const { t, i18n } = useTranslation('tabGroups')
@@ -19,11 +19,9 @@ export function TrashPage() {
   const dateLocale = i18n.language === 'zh-CN' ? zhCN : enUS
   const isMobile = useIsMobile()
   const { success, error: showError } = useToastStore()
-  const [tabGroups, setTabGroups] = useState<TabGroup[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  // Confirm dialog state
+  const trashQuery = useTabGroupsTrashQuery()
+  const invalidateTabGroups = useInvalidateTabGroups()
+  const tabGroups = trashQuery.data || []
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean
     title: string
@@ -36,34 +34,16 @@ export function TrashPage() {
     onConfirm: () => {},
   })
 
-  useEffect(() => {
-    loadTrash()
-  }, [])
-
-  const loadTrash = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const response = await tabGroupsService.getTrash()
-      setTabGroups(response.tab_groups)
-    } catch (err) {
-      logger.error('Failed to load trash:', err)
-      setError(t('trashPage.loadFailed'))
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   const handleRestore = (id: string, title: string) => {
     setConfirmDialog({
       isOpen: true,
       title: t('confirm.restoreGroup'),
       message: t('confirm.restoreGroupMessage', { title }),
       onConfirm: async () => {
-        setConfirmDialog({ ...confirmDialog, isOpen: false })
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
         try {
           await tabGroupsService.restoreTabGroup(id)
-          setTabGroups((prev) => prev.filter((g) => g.id !== id))
+          await invalidateTabGroups()
           success(t('trashPage.restoreSuccess'))
         } catch (err) {
           logger.error('Failed to restore:', err)
@@ -79,10 +59,10 @@ export function TrashPage() {
       title: t('confirm.permanentDelete'),
       message: t('confirm.permanentDeleteMessage', { title }),
       onConfirm: async () => {
-        setConfirmDialog({ ...confirmDialog, isOpen: false })
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
         try {
           await tabGroupsService.permanentDeleteTabGroup(id)
-          setTabGroups((prev) => prev.filter((g) => g.id !== id))
+          await invalidateTabGroups()
           success(t('trashPage.deleteSuccess'))
         } catch (err) {
           logger.error('Failed to delete:', err)
@@ -92,7 +72,7 @@ export function TrashPage() {
     })
   }
 
-  if (isLoading) {
+  if (trashQuery.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -103,13 +83,15 @@ export function TrashPage() {
     )
   }
 
-  if (error) {
+  if (trashQuery.isError) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <p className="text-destructive mb-4">{error}</p>
+          <p className="text-destructive mb-4">{t('trashPage.loadFailed')}</p>
           <button
-            onClick={loadTrash}
+            onClick={() => {
+              void trashQuery.refetch()
+            }}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
           >
             {tc('button.retry')}
@@ -121,7 +103,6 @@ export function TrashPage() {
 
   return (
     <div className={`h-screen flex flex-col bg-background ${isMobile ? 'overflow-hidden' : ''}`}>
-      {/* 移动端顶部工具栏 */}
       {isMobile && (
         <MobileHeader
           title={t('trashPage.title')}
@@ -133,7 +114,6 @@ export function TrashPage() {
 
       <div className={`flex-1 overflow-y-auto ${isMobile ? 'pb-20 min-h-0' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header - 桌面端显示 */}
           {!isMobile && (
             <div className="mb-8">
               <Link
@@ -151,79 +131,72 @@ export function TrashPage() {
             </div>
           )}
 
-      {/* Empty State */}
-      {tabGroups.length === 0 ? (
-        <div className="text-center py-16">
-          <Archive className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">{t('trashPage.empty')}</h3>
-          <p className="text-muted-foreground">{t('trashPage.emptyDescription')}</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {tabGroups.map((group) => (
-            <div
-              key={group.id}
-              className="card p-6 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-foreground mb-2">{group.title}</h3>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Layers className="w-4 h-4" />
-                      <span>{t('header.tabCount', { count: group.item_count || 0 })}</span>
+          {tabGroups.length === 0 ? (
+            <div className="text-center py-16">
+              <Archive className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">{t('trashPage.empty')}</h3>
+              <p className="text-muted-foreground">{t('trashPage.emptyDescription')}</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {tabGroups.map((group) => (
+                <div key={group.id} className="card p-6 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-foreground mb-2">{group.title}</h3>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Layers className="w-4 h-4" />
+                          <span>{t('header.tabCount', { count: group.item_count || 0 })}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          <span>
+                            {t('trashPage.deletedAt')}{' '}
+                            {group.deleted_at
+                              ? formatDistanceToNow(new Date(group.deleted_at), {
+                                  addSuffix: true,
+                                  locale: dateLocale,
+                                })
+                              : '-'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>
-                        {t('trashPage.deletedAt')}{' '}
-                        {group.deleted_at
-                          ? formatDistanceToNow(new Date(group.deleted_at), {
-                              addSuffix: true,
-                              locale: dateLocale,
-                            })
-                          : '-'}
-                      </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleRestore(group.id, group.title)}
+                        className="flex items-center gap-2 px-4 py-2 bg-success text-success-foreground rounded-lg hover:bg-success/90 transition-colors"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        {t('trashPage.restore')}
+                      </button>
+                      <button
+                        onClick={() => handlePermanentDelete(group.id, group.title)}
+                        className="flex items-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {t('trashPage.permanentDelete')}
+                      </button>
                     </div>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleRestore(group.id, group.title)}
-                    className="flex items-center gap-2 px-4 py-2 bg-success text-success-foreground rounded-lg hover:bg-success/90 transition-colors"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    {t('trashPage.restore')}
-                  </button>
-                  <button
-                    onClick={() => handlePermanentDelete(group.id, group.title)}
-                    className="flex items-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    {t('trashPage.permanentDelete')}
-                  </button>
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
-          {/* Confirm Dialog */}
           <ConfirmDialog
             isOpen={confirmDialog.isOpen}
             title={confirmDialog.title}
             message={confirmDialog.message}
             onConfirm={confirmDialog.onConfirm}
-            onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+            onCancel={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
           />
         </div>
       </div>
 
-      {/* 移动端底部导航 */}
       {isMobile && <BottomNav />}
     </div>
   )
 }
-

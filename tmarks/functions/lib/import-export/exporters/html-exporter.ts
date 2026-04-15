@@ -7,8 +7,10 @@ import type {
   Exporter, 
   TMarksExportData, 
   ExportOptions, 
-  ExportOutput 
+  ExportOutput
 } from '../../../../shared/import-export-types'
+
+import { generateTabGroupsNetscapeSection } from './tab-groups-netscape'
 
 export class HtmlExporter implements Exporter {
   readonly format = 'html' as const
@@ -38,6 +40,12 @@ export class HtmlExporter implements Exporter {
     
     // 按文件夹组织书签（使用标签作为文件夹）
     const bookmarksByFolder = this.organizeBookmarksByFolder(data.bookmarks, includeTags)
+    const tabGroupsSection = generateTabGroupsNetscapeSection({
+      tabGroups: data.tab_groups,
+      exportedAt: data.exported_at,
+      escapeHtml: (text) => this.escapeHtml(text),
+      toUnixTimestamp: (iso) => this.toUnixTimestamp(iso),
+    })
     
     const html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <!-- This is an automatically generated file.
@@ -48,6 +56,7 @@ export class HtmlExporter implements Exporter {
 <H1>Bookmarks</H1>
 
 <DL><p>
+${tabGroupsSection}
 ${this.generateBookmarkFolders(bookmarksByFolder, data.exported_at)}
 ${includeMetadata ? this.generateMetadataComment(data) : ''}
 </DL><p>`
@@ -145,6 +154,8 @@ ${includeMetadata ? this.generateMetadataComment(data) : ''}
     const stats = {
       totalBookmarks: data.bookmarks.length,
       totalTags: data.tags.length,
+      totalTabGroups: data.tab_groups?.length || 0,
+      totalTabGroupItems: data.tab_groups?.reduce((sum, g) => sum + (g.items?.length || 0), 0) || 0,
       exportedAt: data.exported_at,
       version: data.version
     }
@@ -153,6 +164,8 @@ ${includeMetadata ? this.generateMetadataComment(data) : ''}
 <!-- TMarks Export Metadata
      Total Bookmarks: ${stats.totalBookmarks}
      Total Tags: ${stats.totalTags}
+     Total Tab Groups: ${stats.totalTabGroups}
+     Total Tab Group Items: ${stats.totalTabGroupItems}
      Exported At: ${stats.exportedAt}
      Export Version: ${stats.version}
 -->`

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { tabGroupsService } from '@/services/tab-groups'
 import type { TabGroup, TabGroupItem } from '@/lib/types'
 import { useToastStore } from '@/stores/toastStore'
+import { useInvalidateTabGroups } from './useTabGroupsQuery'
 import { logger } from '@/lib/logger'
 
 interface UseBatchActionsProps {
@@ -33,6 +34,7 @@ export function useBatchActions({
 }: UseBatchActionsProps) {
   const { t } = useTranslation('tabGroups')
   const { success, error: showError } = useToastStore()
+  const invalidateTabGroups = useInvalidateTabGroups()
 
   const handleBatchDelete = () => {
     if (selectedItems.size === 0) return
@@ -60,6 +62,7 @@ export function useBatchActions({
             }))
           )
 
+          await invalidateTabGroups()
           setSelectedItems(new Set())
           success(t('message.batchDeleteSuccess'))
         } catch (err) {
@@ -89,6 +92,7 @@ export function useBatchActions({
         }))
       )
 
+      await invalidateTabGroups()
       setSelectedItems(new Set())
       success(t('message.batchPinSuccess'))
     } catch (err) {
@@ -116,6 +120,7 @@ export function useBatchActions({
         }))
       )
 
+      await invalidateTabGroups()
       setSelectedItems(new Set())
       success(t('message.batchTodoSuccess'))
     } catch (err) {

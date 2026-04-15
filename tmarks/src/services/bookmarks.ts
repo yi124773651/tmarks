@@ -8,6 +8,7 @@ import type {
   BatchActionRequest,
   BatchActionResponse,
 } from '@/lib/types'
+import { assertData } from './index'
 
 export const bookmarksService = {
   /**
@@ -28,7 +29,7 @@ export const bookmarksService = {
     const endpoint = query ? `/bookmarks?${query}` : '/bookmarks'
 
     const response = await apiClient.get<BookmarksResponse>(endpoint)
-    return response.data!
+    return assertData(response.data, 'GET /bookmarks')
   },
 
   /**
@@ -36,7 +37,7 @@ export const bookmarksService = {
    */
   async createBookmark(data: CreateBookmarkRequest) {
     const response = await apiClient.post<{ bookmark: Bookmark }>('/bookmarks', data)
-    return response.data!.bookmark
+    return assertData(response.data, 'POST /bookmarks').bookmark
   },
 
   /**
@@ -44,7 +45,7 @@ export const bookmarksService = {
    */
   async updateBookmark(id: string, data: UpdateBookmarkRequest) {
     const response = await apiClient.patch<{ bookmark: Bookmark }>(`/bookmarks/${id}`, data)
-    return response.data!.bookmark
+    return assertData(response.data, `PATCH /bookmarks/${id}`).bookmark
   },
 
   /**
@@ -59,7 +60,7 @@ export const bookmarksService = {
    */
   async restoreBookmark(id: string) {
     const response = await apiClient.put<{ bookmark: Bookmark }>(`/bookmarks/${id}`)
-    return response.data!.bookmark
+    return assertData(response.data, `PUT /bookmarks/${id}`).bookmark
   },
 
   /**
@@ -67,7 +68,7 @@ export const bookmarksService = {
    */
   async recordClick(id: string) {
     const response = await apiClient.post<{ message: string; clicked_at: string }>(`/bookmarks/${id}/click`)
-    return response.data
+    return assertData(response.data, `POST /bookmarks/${id}/click`)
   },
 
   /**
@@ -75,7 +76,7 @@ export const bookmarksService = {
    */
   async batchAction(data: BatchActionRequest) {
     const response = await apiClient.patch<BatchActionResponse>('/bookmarks/bulk', data)
-    return response.data!
+    return assertData(response.data, 'PATCH /bookmarks/bulk')
   },
 
   /**
@@ -90,7 +91,7 @@ export const bookmarksService = {
     const response = await apiClient.get(
       `/bookmarks/statistics?granularity=${granularity}&start_date=${startDate}&end_date=${endDate}`
     )
-    return response.data
+    return assertData(response.data, 'GET /bookmarks/statistics')
   },
 
   /**
@@ -100,7 +101,7 @@ export const bookmarksService = {
     const response = await apiClient.get<{ exists: boolean; bookmark?: Bookmark }>(
       `/bookmarks/check-url?url=${encodeURIComponent(url)}`
     )
-    return response.data!
+    return assertData(response.data, 'GET /bookmarks/check-url')
   },
 
   /**
@@ -115,7 +116,7 @@ export const bookmarksService = {
     const endpoint = query ? `/bookmarks/trash?${query}` : '/bookmarks/trash'
     
     const response = await apiClient.get<BookmarksResponse>(endpoint)
-    return response.data!
+    return assertData(response.data, 'GET /bookmarks/trash')
   },
 
   /**
@@ -123,7 +124,7 @@ export const bookmarksService = {
    */
   async restoreFromTrash(id: string) {
     const response = await apiClient.patch<{ bookmark: Bookmark }>(`/bookmarks/${id}/restore`, {})
-    return response.data!.bookmark
+    return assertData(response.data, `PATCH /bookmarks/${id}/restore`).bookmark
   },
 
   /**
@@ -138,6 +139,6 @@ export const bookmarksService = {
    */
   async emptyTrash() {
     const response = await apiClient.delete<{ message: string; count: number }>('/bookmarks/trash/empty')
-    return response.data!
+    return assertData(response.data, 'DELETE /bookmarks/trash/empty')
   },
 }

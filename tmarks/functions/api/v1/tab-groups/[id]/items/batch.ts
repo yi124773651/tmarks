@@ -4,7 +4,7 @@
  * 认证: JWT Token (Bearer)
  */
 
-import type { PagesFunction } from '@cloudflare/workers-types'
+import type { PagesFunction, D1PreparedStatement } from '@cloudflare/workers-types'
 import type { Env, RouteParams } from '../../../../../lib/types'
 import { success, badRequest, notFound, internalError } from '../../../../../lib/response'
 import { requireAuth, AuthContext } from '../../../../../middleware/auth'
@@ -71,6 +71,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
 
       // Insert items
       const insertedItems: TabGroupItemRow[] = []
+      const stmts: D1PreparedStatement[] = []
       const now = new Date().toISOString()
 
       for (const item of body.items) {
@@ -83,12 +84,12 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
         const sanitizedUrl = sanitizeString(item.url, 2000)
         const sanitizedFavicon = item.favicon ? sanitizeString(item.favicon, 2000) : null
 
-        await context.env.DB.prepare(
-          `INSERT INTO tab_group_items (id, group_id, title, url, favicon, position, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        stmts.push(
+          context.env.DB.prepare(
+            `INSERT INTO tab_group_items (id, group_id, title, url, favicon, position, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
+          ).bind(itemId, groupId, sanitizedTitle, sanitizedUrl, sanitizedFavicon, currentPosition, now)
         )
-          .bind(itemId, groupId, sanitizedTitle, sanitizedUrl, sanitizedFavicon, currentPosition, now)
-          .run()
 
         insertedItems.push({
           id: itemId,
@@ -101,6 +102,10 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
         })
 
         currentPosition++
+      }
+
+      if (stmts.length > 0) {
+        await context.env.DB.batch(stmts)
       }
 
       return success({

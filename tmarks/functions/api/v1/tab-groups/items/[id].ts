@@ -104,21 +104,23 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
         return badRequest('No fields to update')
       }
 
-      // Add item ID to params
-      params.push(itemId)
+      // Add item ID to params — use subquery to enforce ownership
+      params.push(itemId, item.group_id, userId)
 
-      // Execute update
+      // Execute update with ownership check via group
       await context.env.DB.prepare(
-        `UPDATE tab_group_items SET ${updates.join(', ')} WHERE id = ?`
+        `UPDATE tab_group_items SET ${updates.join(', ')} WHERE id = ? AND group_id IN (SELECT id FROM tab_groups WHERE id = ? AND user_id = ?)`
       )
         .bind(...params)
         .run()
 
       // Get updated item
       const updatedItem = await context.env.DB.prepare(
-        'SELECT * FROM tab_group_items WHERE id = ?'
+        `SELECT tgi.* FROM tab_group_items tgi
+         JOIN tab_groups tg ON tgi.group_id = tg.id
+         WHERE tgi.id = ? AND tg.user_id = ?`
       )
-        .bind(itemId)
+        .bind(itemId, userId)
         .first<TabGroupItemRow>()
 
       if (!updatedItem) {
@@ -162,9 +164,11 @@ export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
         return notFound('Tab group item not found')
       }
 
-      // Delete item
-      await context.env.DB.prepare('DELETE FROM tab_group_items WHERE id = ?')
-        .bind(itemId)
+      // Delete item with ownership check
+      await context.env.DB.prepare(
+        'DELETE FROM tab_group_items WHERE id = ? AND group_id IN (SELECT id FROM tab_groups WHERE id = ? AND user_id = ?)'
+      )
+        .bind(itemId, item.group_id, userId)
         .run()
 
       // Reorder remaining items

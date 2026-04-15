@@ -15,9 +15,9 @@
   "help": {
     "title": "使用说明",
     "exportTitle": "导出功能",
-    "exportTip1": "支持 JSON 和 HTML 两种格式",
+    "exportTip1": "仅支持 JSON 格式导出",
     "exportTip2": "JSON 格式包含完整数据，适合备份和迁移",
-    "exportTip3": "HTML 格式兼容浏览器，可导出为浏览器书签格式",
+    "exportTip3": "JSON 可完整保留书签、标签与标签页组结构，适合严格还原",
     "exportTip4": "可选择包含标签、元数据等信息",
     "notesTitle": "注意事项",
     "notesTip1": "建议定期导出数据作为备份",
@@ -26,10 +26,15 @@
     "notesTip4": "如遇到问题，可查看错误详情进行排查"
   },
   "export": {
-    "title": "导出书签",
-    "description": "将您的书签数据导出为文件，支持多种格式",
+    "title": "导出数据",
+    "description": "将您的数据导出为 JSON 文件，用于备份与迁移",
     "selectFormat": "导出格式",
     "options": "导出选项",
+    "scope": "导出范围",
+    "scopeAll": "全部数据",
+    "scopeBookmarks": "仅书签",
+    "scopeTabGroups": "仅收纳箱/标签页组",
+    "includeDeleted": "包含回收站（已删除内容）",
     "includeTags": "包含标签信息",
     "includeMetadata": "包含元数据",
     "prettyPrint": "格式化 JSON（便于阅读）",
@@ -39,6 +44,7 @@
     "bookmarkCount": "书签数量",
     "tagCount": "标签数量",
     "pinnedCount": "置顶书签",
+    "tabGroupCount": "收纳箱（标签页组）",
     "estimatedSize": "预计大小",
     "startExport": "开始导出",
     "exporting": "导出中...",
@@ -57,3 +63,4 @@
     "recommended": "推荐"
   }
 }
+

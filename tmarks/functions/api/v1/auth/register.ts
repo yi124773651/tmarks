@@ -14,6 +14,33 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const db = context.env.DB
 
+    // 简单的注册速率限制：每个 IP 每小时最多 5 次
+    const clientIP = context.request.headers.get('CF-Connecting-IP') || 'unknown'
+
+    // 先记录本次注册尝试（无论成败都计入速率限制）
+    try {
+      await db.prepare(
+        `INSERT INTO audit_logs (user_id, event_type, ip, payload, created_at)
+         VALUES ('system', 'register_attempt', ?, ?, datetime('now'))`
+      ).bind(clientIP, JSON.stringify({ ip: clientIP })).run()
+    } catch {
+      // 审计日志插入失败不影响注册流程
+    }
+
+    const rateCheck = await db.prepare(
+      `SELECT COUNT(*) as cnt FROM audit_logs
+       WHERE event_type = 'register_attempt'
+       AND ip = ?
+       AND created_at > datetime('now', '-1 hour')`
+    ).bind(clientIP).first<{ cnt: number }>()
+    
+    if (rateCheck && rateCheck.cnt >= 5) {
+      return new Response(JSON.stringify({ code: 'RATE_LIMITED', message: 'Too many registration attempts' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': '3600' }
+      })
+    }
+
     // 检查是否允许注册
     if (context.env.ALLOW_REGISTRATION !== 'true') {
       return badRequest('Registration is currently disabled')

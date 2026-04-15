@@ -86,7 +86,7 @@ export function ShareSettingsPage() {
                 className="input flex-1"
                 placeholder={t('settings.slugPlaceholder')}
                 value={slug}
-                onChange={(e) => setSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase())}
+                onChange={(e) => setSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').replace(/^-+|-+$/g, '').toLowerCase())}
                 disabled={isLoading || updateShare.isPending}
               />
               <button

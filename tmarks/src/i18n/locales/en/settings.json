@@ -18,14 +18,16 @@
     "save": "Save Settings",
     "saving": "Saving...",
     "reset": "Reset",
-    "logout": "Logout"
+    "logout": "Logout",
+    "discard": "Discard"
   },
   "message": {
     "saveSuccess": "Settings saved",
     "saveFailed": "Failed to save",
     "saveFailedWithError": "Failed to save: {{error}}",
     "resetSuccess": "Reset to last saved settings",
-    "logoutFailed": "Failed to logout"
+    "logoutFailed": "Failed to logout",
+    "unsavedChanges": "You have unsaved changes"
   },
   "language": {
     "title": "Language Settings",
@@ -101,7 +103,39 @@
     }
   },
   "ai": {
-    "custom": "Custom"
+    "custom": "Custom",
+    "title": "AI Service Configuration",
+    "description": "Configure AI service for tag suggestions, smart categorization, etc.",
+    "enable": "Enable AI Features",
+    "enabled": "Enabled",
+    "enableHint": "Enable to use AI smart organization features",
+    "provider": "Provider",
+    "apiKey": "API Key",
+    "getApiKey": "Get API Key",
+    "apiKeyPlaceholder": "Enter {{provider}} API Key",
+    "model": "Model",
+    "selectModel": "Select",
+    "refreshModels": "Refresh Models",
+    "refreshingModels": "Fetching...",
+    "modelsFetched": "Fetched {{count}} models, select or enter manually",
+    "modelsFetchError": "Failed to load models: {{error}}",
+    "modelsHint": "Enter API Key to auto-fetch available models, recommended: {{model}}",
+    "modelsRecommend": "Recommended: {{model}}, good value",
+    "apiUrl": "API URL",
+    "apiUrlOptional": "API URL (optional)",
+    "apiUrlHint": "Leave empty for default URL, or enter custom API endpoint",
+    "testConnection": "Test Connection",
+    "testSuccess": "Connected ({{latency}}ms)",
+    "testFailed": "Connection failed",
+    "enterApiKeyFirst": "Please enter a complete API Key first",
+    "saveSuccess": "AI settings saved",
+    "infoBox": {
+      "title": "Usage Guide",
+      "tip1": "API Key is encrypted and stored on server, will not be leaked",
+      "tip2": "AI calls are made directly from browser, data doesn't pass through TMarks server",
+      "tip3": "Recommended: DeepSeek or gpt-4o-mini for best value",
+      "tip4": "Processing 100 bookmarks costs about $0.01-0.05"
+    }
   },
   "apiKey": {
     "page": {
@@ -357,9 +391,9 @@
     "title": "Browser Settings",
     "download": {
       "title": "Browser Extension Download",
-      "description": "Select your browser to download the corresponding extension",
+      "description": "Download the Chrome/Chromium universal extension (for Chromium-based browsers)",
       "clickToDownload": "Click to download",
-      "tip": "💡 8 browser-specific versions available. You can also use the Chrome universal version (supports all Chrome-based browsers)"
+      "tip": "💡 Only the Chrome/Chromium universal package is provided (Chrome, Edge, Brave, Opera, 360, QQ, Sogou, etc.)"
     },
     "permissions": {
       "title": "Browser Permissions",
@@ -402,7 +436,7 @@
       "step2Title": "Extract files",
       "step2Desc": "Extract the downloaded zip file to any folder (preferably a permanent location)",
       "step3Title": "Open extension management page",
-      "step3Desc": "Chrome: chrome://extensions/ | Edge: edge://extensions/ | Firefox: about:debugging",
+      "step3Desc": "Chrome: chrome://extensions/ | Edge: edge://extensions/",
       "step4Title": "Enable developer mode",
       "step4Desc": "In the extension management page, turn on \"Developer mode\" switch in the top right",
       "step5Title": "Load extension",
@@ -417,7 +451,7 @@
       "howToGetApiKey": "Q: How to get API Key?",
       "howToGetApiKeyAnswer": "A: Create a new API Key in the \"API\" tab of General Settings and copy it to the extension configuration.",
       "supportedBrowsers": "Q: Which browsers are supported?",
-      "supportedBrowsersAnswer": "A: Supports Chrome, Edge, Firefox, Brave, Opera, 360, QQ, Sogou and other mainstream browsers.",
+      "supportedBrowsersAnswer": "A: Only the Chrome/Chromium version is provided. It works on Chromium-based browsers like Chrome, Edge, Brave, Opera, 360, QQ and Sogou.",
       "whereToView": "Where to view saved tab groups?",
       "whereToViewAnswer": "View and manage all saved tab groups on the \"Tab Groups\" page of TMarks website."
     },
@@ -522,39 +556,10 @@
   "tips": {
     "title": "💡 Tips"
   },
-  "ai": {
-    "custom": "Custom",
-    "title": "AI Service Configuration",
-    "description": "Configure AI service for tag suggestions, smart categorization, etc.",
-    "enable": "Enable AI Features",
-    "enabled": "Enabled",
-    "enableHint": "Enable to use AI smart organization features",
-    "provider": "Provider",
-    "apiKey": "API Key",
-    "getApiKey": "Get API Key",
-    "apiKeyPlaceholder": "Enter {{provider}} API Key",
-    "model": "Model",
-    "selectModel": "Select",
-    "refreshModels": "Refresh Models",
-    "refreshingModels": "Fetching...",
-    "modelsFetched": "Fetched {{count}} models, select or enter manually",
-    "modelsFetchError": "Failed to load models: {{error}}",
-    "modelsHint": "Enter API Key to auto-fetch available models, recommended: {{model}}",
-    "modelsRecommend": "Recommended: {{model}}, good value",
-    "apiUrl": "API URL",
-    "apiUrlOptional": "API URL (optional)",
-    "apiUrlHint": "Leave empty for default URL, or enter custom API endpoint",
-    "testConnection": "Test Connection",
-    "testSuccess": "Connected ({{latency}}ms)",
-    "testFailed": "Connection failed",
-    "enterApiKeyFirst": "Please enter a complete API Key first",
-    "saveSuccess": "AI settings saved",
-    "infoBox": {
-      "title": "Usage Guide",
-      "tip1": "API Key is encrypted and stored on server, will not be leaked",
-      "tip2": "AI calls are made directly from browser, data doesn't pass through TMarks server",
-      "tip3": "Recommended: DeepSeek or gpt-4o-mini for best value",
-      "tip4": "Processing 100 bookmarks costs about $0.01-0.05"
-    }
+  "navGroup": {
+    "account": "Account & Security",
+    "features": "Features",
+    "integration": "Integration",
+    "dataAndShare": "Data & Sharing"
   }
 }

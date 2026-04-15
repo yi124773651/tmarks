@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { buildTabOpenerHtml, getThemeColors } from './buildTabOpenerHtml'
 import { tabGroupsService } from '@/services/tab-groups'
 import type { TabGroup } from '@/lib/types'
 import { useDialogStore } from '@/stores/dialogStore'
@@ -61,179 +62,26 @@ export function useTabGroupMenu({ onRefresh, onStartRename, onOpenMoveDialog }: 
     }
 
     try {
-      // 获取当前主题颜色
-    const root = document.documentElement
-    const primary = getComputedStyle(root).getPropertyValue('--primary').trim()
-    const accent = getComputedStyle(root).getPropertyValue('--accent').trim()
-    const card = getComputedStyle(root).getPropertyValue('--card').trim()
-    const muted = getComputedStyle(root).getPropertyValue('--muted').trim()
-    const success = getComputedStyle(root).getPropertyValue('--success').trim()
-    const destructive = getComputedStyle(root).getPropertyValue('--destructive').trim()
-    const foreground = getComputedStyle(root).getPropertyValue('--foreground').trim()
+      const colors = getThemeColors()
+      const i18nSuccessPartial = t('tabOpener.successPartial', { opened: '__OPENED__', failed: '__FAILED__' } as Record<string, unknown>)
+        .replace('__OPENED__', "' + opened + '")
+        .replace('__FAILED__', "' + failed + '")
+      const i18nSuccessAll = t('tabOpener.successAll', { count: '__COUNT__' } as Record<string, unknown>)
+        .replace('__COUNT__', "' + opened + '")
 
-    // 获取翻译文本
-    const i18nTitle = t('tabOpener.title')
-    const i18nHeading = t('tabOpener.heading')
-    const i18nPreparing = t('tabOpener.preparing')
-    const i18nOpening = t('tabOpener.opening')
-    const i18nSuccessPartial = t('tabOpener.successPartial', { opened: 0, failed: 0 }).replace('0', "' + opened + '").replace('0', "' + failed + '")
-    const i18nSuccessAll = t('tabOpener.successAll', { count: 0 }).replace('0', "' + opened + '")
-    const i18nCloseWindow = t('tabOpener.closeWindow')
-
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>${i18nTitle}</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      background: linear-gradient(135deg, ${primary} 0%, ${accent} 100%);
-      color: ${foreground};
-    }
-    .container {
-      text-align: center;
-      padding: 2rem;
-      background: ${card};
-      backdrop-filter: blur(10px);
-      border-radius: 1rem;
-      box-shadow: 0 8px 32px hsl(0 0% 0% / 0.15);
-      max-width: 600px;
-    }
-    h1 { margin: 0 0 1rem 0; font-size: 2rem; }
-    .progress {
-      margin: 2rem 0;
-      font-size: 1.5rem;
-      font-weight: bold;
-    }
-    .status {
-      margin: 1rem 0;
-      padding: 1rem;
-      background: ${muted};
-      border-radius: 0.5rem;
-      font-size: 0.9rem;
-    }
-    .links {
-      margin-top: 2rem;
-      text-align: left;
-      max-height: 300px;
-      overflow-y: auto;
-      padding: 1rem;
-      background: ${muted};
-      border-radius: 0.5rem;
-    }
-    .link-item {
-      padding: 0.5rem;
-      margin: 0.25rem 0;
-      background: ${card};
-      border-radius: 0.25rem;
-      font-size: 0.85rem;
-      word-break: break-all;
-    }
-    .link-item.opened {
-      background: color-mix(in srgb, ${success} 30%, transparent);
-    }
-    .link-item.failed {
-      background: color-mix(in srgb, ${destructive} 30%, transparent);
-    }
-    button {
-      margin-top: 1rem;
-      padding: 0.75rem 2rem;
-      font-size: 1rem;
-      background: ${primary};
-      color: ${foreground};
-      border: none;
-      border-radius: 0.5rem;
-      cursor: pointer;
-      font-weight: bold;
-      transition: transform 0.2s;
-    }
-    button:hover {
-      transform: scale(1.05);
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>${i18nHeading}</h1>
-    <div class="progress">
-      <span id="current">0</span> / <span id="total">${group.items.length}</span>
-    </div>
-    <div class="status" id="status">${i18nPreparing}</div>
-    <div class="links" id="links"></div>
-    <button onclick="window.close()" style="display:none" id="closeBtn">${i18nCloseWindow}</button>
-  </div>
-  <script>
-    const urls = ${JSON.stringify(group.items.map((item) => ({ url: item.url, title: item.title })))};
-    const i18nOpening = '${i18nOpening}';
-    let opened = 0;
-    let failed = 0;
-    
-    const linksContainer = document.getElementById('links');
-    const statusEl = document.getElementById('status');
-    const currentEl = document.getElementById('current');
-    const closeBtnEl = document.getElementById('closeBtn');
-    
-    urls.forEach((item, index) => {
-      const div = document.createElement('div');
-      div.className = 'link-item';
-      div.id = 'link-' + index;
-      div.textContent = (index + 1) + '. ' + item.title;
-      linksContainer.appendChild(div);
-    });
-    
-    async function openTabs() {
-      for (let i = 0; i < urls.length; i++) {
-        const item = urls[i];
-        const linkEl = document.getElementById('link-' + i);
-        
-        try {
-          statusEl.textContent = i18nOpening + item.title;
-          const newWindow = window.open(item.url, '_blank', 'noopener,noreferrer');
-          
-          if (newWindow) {
-            opened++;
-            linkEl.className = 'link-item opened';
-          } else {
-            failed++;
-            linkEl.className = 'link-item failed';
-          }
-        } catch (error) {
-          console.error('Failed to open:', item.url, error);
-          failed++;
-          linkEl.className = 'link-item failed';
+      const html = buildTabOpenerHtml(
+        group.items.map(item => ({ url: item.url, title: item.title })),
+        colors,
+        {
+          title: t('tabOpener.title'),
+          heading: t('tabOpener.heading'),
+          preparing: t('tabOpener.preparing'),
+          opening: t('tabOpener.opening'),
+          successPartial: i18nSuccessPartial,
+          successAll: i18nSuccessAll,
+          closeWindow: t('tabOpener.closeWindow'),
         }
-        
-        currentEl.textContent = (i + 1);
-        
-        if (i < urls.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-      }
-      
-      if (failed > 0) {
-        statusEl.textContent = '${i18nSuccessPartial}';
-        statusEl.style.background = 'var(--warning)';
-        statusEl.style.opacity = '0.3';
-      } else {
-        statusEl.textContent = '${i18nSuccessAll}';
-        statusEl.style.background = 'var(--success)';
-        statusEl.style.opacity = '0.3';
-      }
-      
-      closeBtnEl.style.display = 'block';
-    }
-    
-    setTimeout(openTabs, 500);
-  </script>
-</body>
-</html>`
+      )
 
       const blob = new Blob([html], { type: 'text/html' })
       const url = URL.createObjectURL(blob)
@@ -251,17 +99,9 @@ export function useTabGroupMenu({ onRefresh, onStartRename, onOpenMoveDialog }: 
     }
   }
 
-  const onOpenInNewWindow = (group: TabGroup) => {
-    openAllTabs(group, 'new')
-  }
-
-  const onOpenInCurrentWindow = (group: TabGroup) => {
-    openAllTabs(group, 'current')
-  }
-
-  const onOpenInIncognito = (group: TabGroup) => {
-    openAllTabs(group, 'incognito')
-  }
+  const onOpenInNewWindow = (group: TabGroup) => openAllTabs(group, 'new')
+  const onOpenInCurrentWindow = (group: TabGroup) => openAllTabs(group, 'current')
+  const onOpenInIncognito = (group: TabGroup) => openAllTabs(group, 'incognito')
 
   const onRename = (group: TabGroup) => {
     onStartRename(group.id, group.title)
@@ -313,36 +153,21 @@ export function useTabGroupMenu({ onRefresh, onStartRename, onOpenMoveDialog }: 
     }
   }
 
-  const onCreateFolderAbove = async (group: TabGroup) => {
+  const createFolderAt = async (parentId?: string | null) => {
     try {
-      await tabGroupsService.createFolder(t('folder.newFolder'), group.parent_id)
+      await tabGroupsService.createFolder(t('folder.newFolder'), parentId)
       await onRefresh?.()
     } catch (err) {
       console.error('Failed to create folder:', err)
       await dialog.alert({ message: t('message.createFolderFailed'), type: 'error' })
     }
   }
-
+  const onCreateFolderAbove = (group: TabGroup) => createFolderAt(group.parent_id)
   const onCreateFolderInside = async (group: TabGroup) => {
     if (group.is_folder !== 1) return
-    try {
-      await tabGroupsService.createFolder(t('folder.newFolder'), group.id)
-      await onRefresh?.()
-    } catch (err) {
-      console.error('Failed to create folder:', err)
-      await dialog.alert({ message: t('message.createFolderFailed'), type: 'error' })
-    }
+    await createFolderAt(group.id)
   }
-
-  const onCreateFolderBelow = async (group: TabGroup) => {
-    try {
-      await tabGroupsService.createFolder(t('folder.newFolder'), group.parent_id)
-      await onRefresh?.()
-    } catch (err) {
-      console.error('Failed to create folder:', err)
-      await dialog.alert({ message: t('message.createFolderFailed'), type: 'error' })
-    }
-  }
+  const onCreateFolderBelow = (group: TabGroup) => createFolderAt(group.parent_id)
 
   const onPinToTop = async (group: TabGroup) => {
     try {
@@ -384,7 +209,9 @@ export function useTabGroupMenu({ onRefresh, onStartRename, onOpenMoveDialog }: 
 
     if (confirmed) {
       try {
-        await Promise.all(duplicates.map(id => tabGroupsService.deleteTabGroupItem(id)))
+        for (const id of duplicates) {
+          await tabGroupsService.deleteTabGroupItem(id)
+        }
         await onRefresh?.()
         await dialog.alert({ message: t('message.duplicatesRemoved', { count: duplicates.length }), type: 'success' })
       } catch (err) {
@@ -461,4 +288,3 @@ export function useTabGroupMenu({ onRefresh, onStartRename, onOpenMoveDialog }: 
     onMoveToTrash,
   }
 }
-

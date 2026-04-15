@@ -105,7 +105,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return success({
       access_token: accessToken,
       token_type: 'Bearer',
-      expires_in: 31536000, // 365 days in seconds
+      expires_in: parseExpiresInToSeconds(getJwtAccessTokenExpiresIn(context.env)),
       user: {
         id: user.id,
         username: user.username,
@@ -116,5 +116,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   } catch (error) {
     console.error('Refresh error:', error)
     return internalError('Token refresh failed')
+  }
+}
+
+function parseExpiresInToSeconds(expiresIn: string): number {
+  const match = expiresIn.match(/^(\d+)(s|m|h|d)$/)
+  if (!match) return 31536000
+  const value = parseInt(match[1], 10)
+  switch (match[2]) {
+    case 's': return value
+    case 'm': return value * 60
+    case 'h': return value * 3600
+    case 'd': return value * 86400
+    default: return 31536000
   }
 }

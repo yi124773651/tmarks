@@ -56,9 +56,7 @@ export function useInfiniteBookmarks(
 /**
  * 创建书签
  * 
- * 优化说明:
- * - 使用乐观更新，立即更新缓存
- * - 失败时自动回滚
+ * 成功后自动刷新书签和标签缓存
  */
 export function useCreateBookmark() {
   const queryClient = useQueryClient()

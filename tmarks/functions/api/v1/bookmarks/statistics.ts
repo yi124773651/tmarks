@@ -8,50 +8,7 @@ import type { PagesFunction } from '@cloudflare/workers-types'
 import type { Env } from '../../../lib/types'
 import { success, internalError } from '../../../lib/response'
 import { requireAuth, AuthContext } from '../../../middleware/auth'
-
-interface BookmarkStatistics {
-  summary: {
-    total_bookmarks: number
-    total_tags: number
-    total_clicks: number
-    public_bookmarks: number
-  }
-  top_bookmarks: Array<{
-    id: string
-    title: string
-    url: string
-    click_count: number
-    last_clicked_at: string | null
-  }>
-  top_tags: Array<{
-    id: string
-    name: string
-    color: string | null
-    click_count: number
-    bookmark_count: number
-  }>
-  top_domains: Array<{
-    domain: string
-    count: number
-  }>
-  // 当前选择的时间范围内，每个书签的点击次数（按点击次数降序）
-  bookmark_clicks: Array<{
-    id: string
-    title: string
-    url: string
-    click_count: number
-  }>
-  recent_clicks: Array<{
-    id: string
-    title: string
-    url: string
-    last_clicked_at: string
-  }>
-  trends: {
-    bookmarks: Array<{ date: string; count: number }>
-    clicks: Array<{ date: string; count: number }>
-  }
-}
+import { BookmarkStatistics, getDateGroupSql } from './statistics-helpers'
 
 // GET /api/v1/bookmarks/statistics - 获取书签统计数据
 export const onRequestGet: PagesFunction<Env, string, AuthContext>[] = [
@@ -70,53 +27,10 @@ export const onRequestGet: PagesFunction<Env, string, AuthContext>[] = [
 
       // 准备趋势查询的分组条件
       // 6. 创建趋势 - 根据粒度动态分组
-      let dateGroupBy = ''
-      let dateSelect = ''
-      
-      switch (granularity) {
-        case 'year':
-          dateGroupBy = "strftime('%Y', created_at)"
-          dateSelect = "strftime('%Y', created_at) as date"
-          break
-        case 'month':
-          dateGroupBy = "strftime('%Y-%m', created_at)"
-          dateSelect = "strftime('%Y-%m', created_at) as date"
-          break
-        case 'week':
-          // ISO week: %Y-W%W
-          dateGroupBy = "strftime('%Y-W%W', created_at)"
-          dateSelect = "strftime('%Y-W%W', created_at) as date"
-          break
-        case 'day':
-        default:
-          dateGroupBy = "DATE(created_at)"
-          dateSelect = "DATE(created_at) as date"
-          break
-      }
+      const { dateGroupBy, dateSelect } = getDateGroupSql(granularity, 'created_at')
 
       // 7. 点击趋势（基于点击事件表 bookmark_click_events） - 根据粒度动态分组
-      let clickDateGroupBy = ''
-      let clickDateSelect = ''
-
-      switch (granularity) {
-        case 'year':
-          clickDateGroupBy = "strftime('%Y', clicked_at)"
-          clickDateSelect = "strftime('%Y', clicked_at) as date"
-          break
-        case 'month':
-          clickDateGroupBy = "strftime('%Y-%m', clicked_at)"
-          clickDateSelect = "strftime('%Y-%m', clicked_at) as date"
-          break
-        case 'week':
-          clickDateGroupBy = "strftime('%Y-W%W', clicked_at)"
-          clickDateSelect = "strftime('%Y-W%W', clicked_at) as date"
-          break
-        case 'day':
-        default:
-          clickDateGroupBy = "DATE(clicked_at)"
-          clickDateSelect = "DATE(clicked_at) as date"
-          break
-      }
+      const { dateGroupBy: clickDateGroupBy, dateSelect: clickDateSelect } = getDateGroupSql(granularity, 'clicked_at')
 
       // 🚀 并行执行所有查询 - 性能优化
       const [

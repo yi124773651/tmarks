@@ -166,6 +166,7 @@
     "moveTabMessage": "Are you sure you want to move this tab to \"{{title}}\"?",
     "archiveTab": "Archive tab",
     "archiveTabMessage": "Are you sure you want to archive this tab? It can be viewed in the archive view.",
+    "tabMoved": "Moved to \"{{title}}\"",
     "tabArchived": "Tab archived",
     "cancelTaskMark": "Cancel task mark",
     "markAsCompleted": "Mark as completed",

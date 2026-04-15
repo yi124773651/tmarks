@@ -111,7 +111,7 @@ export function useStatisticsData(granularity: Granularity, currentDate: Date) {
     } finally {
       setIsLoading(false)
     }
-  }, [granularity, getDateRange])
+  }, [granularity, getDateRange, t])
 
   useEffect(() => {
     loadStatistics()

@@ -119,7 +119,7 @@ export function TabGroupSidebar({
                       <div
                         key={item.id}
                         className="flex items-center gap-2 px-3 py-1 pl-11 hover:bg-muted cursor-pointer"
-                        onClick={() => window.open(item.url, '_blank')}
+                        onClick={() => { try { window.open(item.url, '_blank') } catch { /* invalid URL */ } }}
                       >
                         <Circle className="w-1.5 h-1.5 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground truncate flex-1">{item.title}</span>

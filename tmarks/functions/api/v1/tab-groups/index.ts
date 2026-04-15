@@ -26,8 +26,6 @@ interface TabGroupRow {
   updated_at: string
 }
 
-// 注意：此接口已与 /api/tab/tab-groups 保持完全一致
-
 interface TabGroupItemRow {
   id: string
   group_id: string
@@ -51,7 +49,7 @@ interface CreateTabGroupRequest {
   }>
 }
 
-// GET /api/v1/tab-groups - 获取标签页组列表
+// GET /api/v1/tab-groups
 export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -62,7 +60,6 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
     const pageCursor = url.searchParams.get('page_cursor') || ''
 
     try {
-      // Build query - 获取所有字段，过滤已删除的记录
       let query = `
         SELECT *
         FROM tab_groups
@@ -70,7 +67,6 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
       `
       const params: SQLParam[] = [userId]
 
-      // Cursor pagination
       if (pageCursor) {
         query += ' AND created_at < ?'
         params.push(pageCursor)
@@ -79,41 +75,48 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
       query += ' ORDER BY created_at DESC LIMIT ?'
       params.push(pageSize + 1)
 
-      console.log('[TabGroups API v1] Query params:', { userId, pageSize, pageCursor })
-      console.log('[TabGroups API v1] Full query:', query)
-      
       const { results } = await context.env.DB.prepare(query)
         .bind(...params)
         .all<TabGroupRow>()
-
-      console.log('[TabGroups API v1] Found groups:', results.length)
 
       const hasMore = results.length > pageSize
       const tabGroups = hasMore ? results.slice(0, pageSize) : results
       const nextCursor = hasMore ? tabGroups[tabGroups.length - 1].created_at : null
 
-      // Get items for each group
-      const groupsWithItems = await Promise.all(
-        tabGroups.map(async (group) => {
-          const { results: items } = await context.env.DB.prepare(
-            `SELECT tgi.*
-             FROM tab_group_items tgi
-             JOIN tab_groups tg ON tgi.group_id = tg.id
-             WHERE tgi.group_id = ? AND tg.user_id = ?
-             ORDER BY COALESCE(tgi.is_pinned, 0) DESC, tgi.position ASC`
-          )
-            .bind(group.id, userId)
-            .all<TabGroupItemRow>()
+      // Batch fetch all items for returned groups (avoids N+1)
+      const groupIds = tabGroups.map((g) => g.id)
+      let allItems: TabGroupItemRow[] = []
 
-          console.log(`[TabGroups API v1] Group ${group.id} (${group.title}): ${items?.length || 0} items`)
+      if (groupIds.length > 0) {
+        const placeholders = groupIds.map(() => '?').join(',')
+        const { results: items } = await context.env.DB.prepare(
+          `SELECT tgi.*
+           FROM tab_group_items tgi
+           JOIN tab_groups tg ON tgi.group_id = tg.id
+           WHERE tgi.group_id IN (${placeholders}) AND tg.user_id = ?
+           ORDER BY COALESCE(tgi.is_pinned, 0) DESC, tgi.position ASC`
+        )
+          .bind(...groupIds, userId)
+          .all<TabGroupItemRow>()
+        allItems = items || []
+      }
 
-          return {
-            ...group,
-            items: items || [],
-            item_count: items?.length || 0,
-          }
-        })
-      )
+      // Group items by group_id in memory
+      const itemsByGroup = new Map<string, TabGroupItemRow[]>()
+      for (const item of allItems) {
+        const arr = itemsByGroup.get(item.group_id) || []
+        arr.push(item)
+        itemsByGroup.set(item.group_id, arr)
+      }
+
+      const groupsWithItems = tabGroups.map((group) => {
+        const items = itemsByGroup.get(group.id) || []
+        return {
+          ...group,
+          items,
+          item_count: items.length,
+        }
+      })
 
       return success({
         tab_groups: groupsWithItems,
@@ -131,7 +134,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// POST /api/v1/tab-groups - 创建标签页组
+// POST /api/v1/tab-groups
 export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -142,13 +145,6 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
 
       const isFolder = body.is_folder || false
 
-      // Validate: folders don't need items, but regular groups can be empty
-      // 允许创建空的标签页组，用户可以稍后添加项目
-      // if (!isFolder && (!body.items || body.items.length === 0)) {
-      //   return badRequest('At least one tab item is required for non-folder groups')
-      // }
-
-      // Generate title if not provided (timestamp format for groups, "新文件夹" for folders)
       const now = new Date()
       const defaultTitle = body.title || (isFolder ? '新文件夹' : now.toLocaleString('zh-CN', {
         year: 'numeric',
@@ -164,37 +160,36 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const timestamp = now.toISOString()
       const parentId = body.parent_id || null
 
-      // Insert tab group or folder
-      await context.env.DB.prepare(
-        'INSERT INTO tab_groups (id, user_id, title, parent_id, is_folder, is_deleted, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)'
-      )
-        .bind(groupId, userId, title, parentId, isFolder ? 1 : 0, timestamp, timestamp)
-        .run()
+      // Build all statements for atomic batch execution
+      const stmts = [
+        context.env.DB.prepare(
+          'INSERT INTO tab_groups (id, user_id, title, parent_id, is_folder, is_deleted, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)'
+        ).bind(groupId, userId, title, parentId, isFolder ? 1 : 0, timestamp, timestamp),
+      ]
 
-      // Insert tab group items (only for non-folder groups)
       if (!isFolder && body.items && body.items.length > 0) {
-        const itemInserts = body.items.map((item, index) => {
+        for (let i = 0; i < body.items.length; i++) {
+          const item = body.items[i]
           const itemId = generateUUID()
           const itemTitle = sanitizeString(item.title, 500)
           const itemUrl = sanitizeString(item.url, 2000)
           const favicon = item.favicon ? sanitizeString(item.favicon, 2000) : null
 
-          return context.env.DB.prepare(
-            'INSERT INTO tab_group_items (id, group_id, title, url, favicon, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+          stmts.push(
+            context.env.DB.prepare(
+              'INSERT INTO tab_group_items (id, group_id, title, url, favicon, position, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+            ).bind(itemId, groupId, itemTitle, itemUrl, favicon, i, timestamp)
           )
-            .bind(itemId, groupId, itemTitle, itemUrl, favicon, index, timestamp)
-            .run()
-        })
-
-        await Promise.all(itemInserts)
+        }
       }
+
+      await context.env.DB.batch(stmts)
 
       // Fetch the created group with items
       const groupRow = await context.env.DB.prepare('SELECT * FROM tab_groups WHERE id = ?')
         .bind(groupId)
         .first<TabGroupRow>()
 
-      // Get items (with user_id verification for security)
       const { results: items } = await context.env.DB.prepare(
         `SELECT tgi.*
          FROM tab_group_items tgi
@@ -222,4 +217,3 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
     }
   },
 ]
-

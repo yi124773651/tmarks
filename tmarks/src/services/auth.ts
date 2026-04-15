@@ -7,6 +7,7 @@ import type {
   RefreshTokenRequest,
   RefreshTokenResponse,
 } from '@/lib/types'
+import { assertData } from './index'
 
 export const authService = {
   /**
@@ -14,7 +15,7 @@ export const authService = {
    */
   async register(data: RegisterRequest) {
     const response = await apiClient.post<RegisterResponse>('/auth/register', data)
-    return response.data!
+    return assertData(response.data, 'POST /auth/register')
   },
 
   /**
@@ -22,7 +23,7 @@ export const authService = {
    */
   async login(data: LoginRequest) {
     const response = await apiClient.post<LoginResponse>('/auth/login', data)
-    return response.data!
+    return assertData(response.data, 'POST /auth/login')
   },
 
   /**
@@ -30,7 +31,7 @@ export const authService = {
    */
   async refreshToken(data: RefreshTokenRequest) {
     const response = await apiClient.post<RefreshTokenResponse>('/auth/refresh', data)
-    return response.data!
+    return assertData(response.data, 'POST /auth/refresh')
   },
 
   /**

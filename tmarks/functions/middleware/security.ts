@@ -19,6 +19,34 @@ export const securityHeaders: PagesFunction = async (context) => {
   const isSnapshotView = url.pathname.includes('/snapshots/') && 
                          (url.pathname.includes('/view') || url.searchParams.has('sig'))
   
+  const standardCsp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https:",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; ')
+
+  // Snapshot view should not execute scripts from captured HTML.
+  const snapshotCsp = [
+    "default-src 'none'",
+    "script-src 'none'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'none'",
+    "media-src 'self' data: https:",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join('; ')
+
   // 安全头配置
   const securityHeaders = {
     // 防止点击劫持（快照查看除外）
@@ -36,20 +64,8 @@ export const securityHeaders: PagesFunction = async (context) => {
     // 权限策略
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
     
-    // 内容安全策略（快照查看使用宽松策略）
-    ...(!isSnapshotView && {
-      'Content-Security-Policy': [
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // React 需要 unsafe-inline
-        "style-src 'self' 'unsafe-inline'", // Tailwind 需要 unsafe-inline
-        "img-src 'self' data: https:",
-        "font-src 'self' data:",
-        "connect-src 'self' https:",
-        "frame-ancestors 'none'",
-        "base-uri 'self'",
-        "form-action 'self'"
-      ].join('; ')
-    }),
+    // 内容安全策略
+    'Content-Security-Policy': isSnapshotView ? snapshotCsp : standardCsp,
     
     // HSTS (仅在 HTTPS 环境下)
     ...(context.request.url.startsWith('https://') && {
@@ -78,16 +94,24 @@ export const corsHeaders: PagesFunction = async (context) => {
   // 从环境变量获取允许的源
   const allowedOriginsEnv = (context.env as { CORS_ALLOWED_ORIGINS?: string })?.CORS_ALLOWED_ORIGINS
 
+  const cors = getCorsPolicy(context.request, allowedOriginsEnv)
+
   // 处理预检请求
   if (context.request.method === 'OPTIONS') {
+    const headers: Record<string, string> = {
+      'Access-Control-Allow-Origin': cors.origin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key',
+      'Access-Control-Max-Age': '86400',
+      'Vary': 'Origin',
+    }
+
+    if (cors.allowCredentials) {
+      headers['Access-Control-Allow-Credentials'] = 'true'
+    }
+
     return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': getAllowedOrigin(context.request, allowedOriginsEnv),
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key',
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Max-Age': '86400',
-      },
+      headers,
     })
   }
 
@@ -95,8 +119,12 @@ export const corsHeaders: PagesFunction = async (context) => {
   const newHeaders = new Headers(response.headers)
 
   // 添加 CORS 头
-  newHeaders.set('Access-Control-Allow-Origin', getAllowedOrigin(context.request, allowedOriginsEnv))
-  newHeaders.set('Access-Control-Allow-Credentials', 'true')
+  newHeaders.set('Access-Control-Allow-Origin', cors.origin)
+  if (cors.allowCredentials) {
+    newHeaders.set('Access-Control-Allow-Credentials', 'true')
+  } else {
+    newHeaders.delete('Access-Control-Allow-Credentials')
+  }
   newHeaders.set('Vary', 'Origin')
   
   return new Response(response.body, {
@@ -111,49 +139,45 @@ export const corsHeaders: PagesFunction = async (context) => {
  * @param request 请求对象
  * @param allowedOriginsEnv 环境变量中的允许源列表（逗号分隔）
  */
-function getAllowedOrigin(request: Request, allowedOriginsEnv?: string): string {
+function getCorsPolicy(request: Request, allowedOriginsEnv?: string): { origin: string; allowCredentials: boolean } {
   const origin = request.headers.get('Origin')
 
-  // 默认允许的源列表（开发环境）
   const defaultOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
   ]
 
-  // 从环境变量解析允许的源（生产环境配置）
   const envOrigins = allowedOriginsEnv
     ? allowedOriginsEnv.split(',').map(o => o.trim()).filter(Boolean)
     : []
 
-  // 合并默认和环境变量中的源
   const allowedOrigins = [...defaultOrigins, ...envOrigins]
 
-  // 如果是 Chrome 扩展的请求，允许所有 chrome-extension:// 来源
-  if (origin && origin.startsWith('chrome-extension://')) {
-    return origin
-  }
-
-  // 如果是 Edge 扩展的请求，允许所有 extension:// 来源
-  if (origin && origin.startsWith('extension://')) {
-    return origin
-  }
-
-  // 如果是 Firefox 扩展的请求，允许所有 moz-extension:// 来源
-  if (origin && origin.startsWith('moz-extension://')) {
-    return origin
+  // 浏览器扩展: 必须在 CORS_ALLOWED_ORIGINS 配置中显式列出
+  // 例如: chrome-extension://abcdef123456,extension://abcdef123456
+  if (origin && (origin.startsWith('chrome-extension://') || origin.startsWith('extension://'))) {
+    if (allowedOrigins.includes(origin)) {
+      return { origin, allowCredentials: true }
+    }
+    // 开发环境回退: 仅在 localhost 来源时允许未配置白名单的扩展
+    const hasExtensionWhitelist = allowedOrigins.some(
+      o => o.startsWith('chrome-extension://') || o.startsWith('extension://')
+    )
+    if (!hasExtensionWhitelist && allowedOrigins.some(o => o.includes('localhost'))) {
+      return { origin, allowCredentials: true }
+    }
+    return { origin: 'null', allowCredentials: false }
   }
 
   if (origin && allowedOrigins.includes(origin)) {
-    return origin
+    return { origin, allowCredentials: true }
   }
 
-  // 如果没有 Origin 头（可能是服务器端请求或扩展请求），返回 *
   if (!origin) {
-    return '*'
+    return { origin: '*', allowCredentials: false }
   }
 
-  // 默认返回第一个允许的源
-  return allowedOrigins[0] || '*'
+  return { origin: 'null', allowCredentials: false }
 }
 
 /**
@@ -227,37 +251,46 @@ export const requestLogger: PagesFunction = async (context) => {
   const start = Date.now()
   const ip = context.request.headers.get('CF-Connecting-IP') || 'unknown'
   const userAgent = context.request.headers.get('User-Agent') || 'unknown'
-  
+
+  // 从日志 URL 中移除敏感查询参数
+  const logUrl = new URL(context.request.url)
+  for (const param of ['sig', 'token', 'api_key', 'key']) {
+    if (logUrl.searchParams.has(param)) {
+      logUrl.searchParams.set(param, '***')
+    }
+  }
+  const sanitizedUrl = logUrl.toString()
+
   try {
     const response = await context.next()
     const duration = Date.now() - start
-    
+
     // 记录请求日志
     console.log(JSON.stringify({
       timestamp: new Date().toISOString(),
       method: context.request.method,
-      url: context.request.url,
+      url: sanitizedUrl,
       status: response.status,
       duration,
       ip,
-      userAgent: userAgent.substring(0, 100), // 限制长度
+      userAgent: userAgent.substring(0, 100),
     }))
-    
+
     return response
   } catch (error) {
     const duration = Date.now() - start
-    
+
     // 记录错误日志
     console.error(JSON.stringify({
       timestamp: new Date().toISOString(),
       method: context.request.method,
-      url: context.request.url,
+      url: sanitizedUrl,
       error: error instanceof Error ? error.message : 'Unknown error',
       duration,
       ip,
       userAgent: userAgent.substring(0, 100),
     }))
-    
+
     throw error
   }
 }

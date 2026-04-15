@@ -1,5 +1,6 @@
 export function isValidEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (email.length > 254) return false
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
   return emailRegex.test(email)
 }
 
@@ -19,10 +20,29 @@ export function isValidUsername(username: string): boolean {
 }
 
 export function isValidPassword(password: string): boolean {
-  // 至少 8 个字符
-  return password.length >= 8
+  // 至少 8 个字符，且包含字母和数字
+  return password.length >= 8 && /[a-zA-Z]/.test(password) && /[0-9]/.test(password)
 }
 
 export function sanitizeString(str: string, maxLength = 1000): string {
   return str.trim().slice(0, maxLength)
+}
+
+/**
+ * Escape HTML special characters to prevent XSS
+ */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * Sanitize and escape a string for safe HTML output
+ */
+export function sanitizeForHtml(str: string, maxLength = 1000): string {
+  return escapeHtml(str.trim().slice(0, maxLength))
 }

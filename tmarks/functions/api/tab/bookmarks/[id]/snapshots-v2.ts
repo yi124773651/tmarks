@@ -9,23 +9,25 @@ import { success, badRequest, notFound, internalError } from '../../../../lib/re
 import { requireApiKeyAuth, ApiKeyAuthContext } from '../../../../middleware/api-key-auth-pages'
 import { generateSignedUrl } from '../../../../lib/signed-url'
 import { checkR2Quota } from '../../../../lib/storage-quota'
+import {
+  decodeBase64Image,
+  uploadImagesConcurrently,
+  replaceImagePlaceholders,
+} from './snapshot-upload'
 
 function generateNanoId(): string {
   const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-  const length = 21
-  const randomValues = new Uint8Array(length)
+  const randomValues = new Uint8Array(21)
   crypto.getRandomValues(randomValues)
-  
   let id = ''
-  for (let i = 0; i < length; i++) {
+  for (let i = 0; i < 21; i++) {
     id += alphabet[randomValues[i] % alphabet.length]
   }
   return id
 }
 
 async function sha256(content: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(content)
+  const data = new TextEncoder().encode(content)
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
@@ -35,11 +37,7 @@ interface CreateSnapshotV2Request {
   html_content: string
   title: string
   url: string
-  images: Array<{
-    hash: string
-    data: string // base64 encoded
-    type: string // mime type
-  }>
+  images: Array<{ hash: string; data: string; type: string }>
   force?: boolean
 }
 
@@ -58,8 +56,6 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         return badRequest('Missing required fields')
       }
 
-      console.log(`[Snapshot V2 API] Received: HTML ${(html_content.length / 1024).toFixed(1)}KB, ${images.length} images`)
-
       const db = context.env.DB
       const bucket = context.env.SNAPSHOTS_BUCKET
 
@@ -77,213 +73,109 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         return notFound('Bookmark not found')
       }
 
-      // 计算内容哈希
-      const contentHash = await sha256(html_content)
-
-      // 检查是否重复
-      if (!force) {
-        const latestSnapshot = await db
-          .prepare(
-            `SELECT content_hash FROM bookmark_snapshots
-             WHERE bookmark_id = ? AND is_latest = 1`
-          )
+      // 计算内容哈希 & 检查重复（并行）
+      const [contentHash, latestSnapshot, versionResult] = await Promise.all([
+        sha256(html_content),
+        force ? Promise.resolve(null) : db
+          .prepare('SELECT content_hash FROM bookmark_snapshots WHERE bookmark_id = ? AND is_latest = 1')
           .bind(bookmarkId)
-          .first()
+          .first(),
+        db
+          .prepare('SELECT COALESCE(MAX(version), 0) + 1 as next_version FROM bookmark_snapshots WHERE bookmark_id = ?')
+          .bind(bookmarkId)
+          .first(),
+      ])
 
-        if (latestSnapshot && latestSnapshot.content_hash === contentHash) {
-          return success({
-            message: 'Content unchanged, no new snapshot created',
-            is_duplicate: true,
-          })
-        }
+      if (!force && latestSnapshot && latestSnapshot.content_hash === contentHash) {
+        return success({ message: 'Content unchanged, no new snapshot created', is_duplicate: true })
       }
 
-      // 获取版本号
-      const versionResult = await db
-        .prepare(
-          `SELECT COALESCE(MAX(version), 0) + 1 as next_version
-           FROM bookmark_snapshots
-           WHERE bookmark_id = ?`
-        )
-        .bind(bookmarkId)
-        .first()
-
-      const version = versionResult?.next_version as number || 1
+      const version = (versionResult?.next_version as number) || 1
       const timestamp = Date.now()
 
-      // 1. 上传图片到 R2
-      const uploadedImages: string[] = []
-      let totalImageSize = 0
+      // 1. 解码所有图片（CPU 密集，在上传前完成）
+      const decoded = images
+        .map(decodeBase64Image)
+        .filter((d): d is NonNullable<typeof d> => d !== null)
 
-      console.log(`[Snapshot V2 API] Starting to upload ${images.length} images...`)
+      // 2. 配额检查：一次性计算总大小
+      const htmlBytes = new TextEncoder().encode(html_content)
+      const totalImageBytes = decoded.reduce((sum, d) => sum + d.bytes.length, 0)
+      const totalSize = htmlBytes.length + totalImageBytes
 
-      for (const image of images) {
-        try {
-          // 解码 base64
-          const base64Data = image.data.split(',')[1] || image.data
-          const binaryString = atob(base64Data)
-          const bytes = new Uint8Array(binaryString.length)
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i)
-          }
-
-          const imageSize = bytes.length
-          totalImageSize += imageSize
-
-          // 不再检查图片大小限制，允许所有图片上传
-          // if (imageSize > MAX_IMAGE_SIZE) {
-          //   console.warn(`[Snapshot V2 API] Image too large: ${image.hash}, ${(imageSize / 1024).toFixed(1)}KB`)
-          //   continue
-          // }
-
-          console.log(`[Snapshot V2 API] Processing image: ${image.hash}, ${(imageSize / 1024 / 1024).toFixed(2)}MB`)
-
-          // 上传前进行配额检查（按单张图片大小预估）
-          const imageQuota = await checkR2Quota(db, context.env, imageSize)
-          if (!imageQuota.allowed) {
-            const usedGB = imageQuota.usedBytes / (1024 * 1024 * 1024)
-            const limitGB = imageQuota.limitBytes / (1024 * 1024 * 1024)
-            console.warn(`[Snapshot V2 API] R2 quota exceeded when uploading image ${image.hash}: used ${usedGB.toFixed(2)}GB / ${limitGB.toFixed(2)}GB`)
-            // 直接跳过这张图片，继续处理其他图片
-            continue
-          }
-
-          // 上传到 R2: {userId}/{bookmarkId}/v{version}/images/{hash}
-          const imageKey = `${userId}/${bookmarkId}/v${version}/images/${image.hash}`
-
-          await bucket.put(imageKey, bytes, {
-            httpMetadata: {
-              contentType: image.type,
-            },
-            customMetadata: {
-              userId,
-              bookmarkId,
-              version: version.toString(),
-              snapshotTimestamp: timestamp.toString(),
-            },
-          })
-
-          uploadedImages.push(image.hash)
-          console.log(`[Snapshot V2 API] ✅ Image uploaded successfully: ${image.hash}, ${(imageSize / 1024 / 1024).toFixed(2)}MB, key: ${imageKey}`)
-        } catch (error) {
-          console.error(`[Snapshot V2 API] ❌ Failed to upload image ${image.hash}:`, error)
-        }
-      }
-
-      console.log(`[Snapshot V2 API] Upload complete: ${uploadedImages.length}/${images.length} images, total: ${(totalImageSize / 1024 / 1024).toFixed(2)}MB`)
-
-      // 2. 替换 HTML 中的图片 URL 为带参数的相对路径
-      // 使用相对路径，避免域名重复问题
-      const baseUrl = new URL(context.request.url).origin
-      let processedHtml = html_content
-      for (const imageHash of uploadedImages) {
-        // 简单替换：只替换占位符路径
-        const placeholderUrl = `/api/snapshot-images/${imageHash}`
-        const newUrl = `/api/snapshot-images/${imageHash}?u=${userId}&b=${bookmarkId}&v=${version}`
-        
-        // 使用全局替换，但要转义特殊字符
-        const escapedPlaceholder = placeholderUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        processedHtml = processedHtml.replace(new RegExp(escapedPlaceholder, 'g'), newUrl)
-      }
-
-      console.log(`[Snapshot V2 API] Replaced ${uploadedImages.length} image URLs with auth parameters`)
-
-      // 3. 上传 HTML 到 R2
-      const htmlKey = `${userId}/${bookmarkId}/snapshot-${timestamp}-v${version}.html`
-      const encoder = new TextEncoder()
-      const htmlBytes = encoder.encode(processedHtml)
-
-      // 将 HTML 大小也计入总配额检查
-      const totalSizeForQuota = htmlBytes.length + totalImageSize
-      const quota = await checkR2Quota(db, context.env, totalSizeForQuota)
+      const quota = await checkR2Quota(db, context.env, totalSize)
       if (!quota.allowed) {
         const usedGB = quota.usedBytes / (1024 * 1024 * 1024)
         const limitGB = quota.limitBytes / (1024 * 1024 * 1024)
         return badRequest({
           code: 'R2_STORAGE_LIMIT_EXCEEDED',
-          message: `Snapshot storage limit exceeded. Used ${usedGB.toFixed(2)}GB of ${limitGB.toFixed(2)}GB. Please delete some snapshots or images and try again.`,
+          message: `Snapshot storage limit exceeded. Used ${usedGB.toFixed(2)}GB of ${limitGB.toFixed(2)}GB.`,
         })
       }
 
-      await bucket.put(htmlKey, htmlBytes, {
-        httpMetadata: {
-          contentType: 'text/html; charset=utf-8',
-        },
+      // 3. 并发上传图片到 R2（6个一组）
+      const { uploadedHashes, totalImageSize } = await uploadImagesConcurrently(
+        decoded, bucket, userId, bookmarkId, version, timestamp
+      )
+
+      // 4. 一次性替换 HTML 中所有占位符
+      const processedHtml = replaceImagePlaceholders(
+        html_content, uploadedHashes, userId, bookmarkId, version
+      )
+
+      // 5. 上传 HTML
+      const htmlKey = `${userId}/${bookmarkId}/snapshot-${timestamp}-v${version}.html`
+      const processedHtmlBytes = new TextEncoder().encode(processedHtml)
+
+      await bucket.put(htmlKey, processedHtmlBytes, {
+        httpMetadata: { contentType: 'text/html; charset=utf-8' },
         customMetadata: {
           userId,
           bookmarkId,
           version: version.toString(),
           title,
-          imageCount: uploadedImages.length.toString(),
+          imageCount: uploadedHashes.length.toString(),
           snapshotVersion: '2',
         },
       })
 
-      console.log(`[Snapshot V2 API] HTML uploaded: ${htmlKey}, ${(htmlBytes.length / 1024).toFixed(1)}KB`)
-
-      // 4. 保存到数据库
+      // 6. 保存到数据库
       const snapshotId = generateNanoId()
       const now = new Date().toISOString()
-      const totalSize = htmlBytes.length + totalImageSize
+      const finalSize = processedHtmlBytes.length + totalImageSize
 
-      const batch = [
+      await db.batch([
         db.prepare(
-          `INSERT INTO bookmark_snapshots 
-           (id, bookmark_id, user_id, version, is_latest, content_hash, 
-            r2_key, r2_bucket, file_size, mime_type, snapshot_url, 
+          `INSERT INTO bookmark_snapshots
+           (id, bookmark_id, user_id, version, is_latest, content_hash,
+            r2_key, r2_bucket, file_size, mime_type, snapshot_url,
             snapshot_title, snapshot_status, created_at, updated_at)
            VALUES (?, ?, ?, ?, 1, ?, ?, 'tmarks-snapshots', ?, 'text/html', ?, ?, 'completed', ?, ?)`
         ).bind(
-          snapshotId,
-          bookmarkId,
-          userId,
-          version,
-          contentHash,
-          htmlKey,
-          totalSize,
-          url,
-          title,
-          now,
-          now
+          snapshotId, bookmarkId, userId, version, contentHash,
+          htmlKey, finalSize, url, title, now, now
         ),
-
+        db.prepare('UPDATE bookmark_snapshots SET is_latest = 0 WHERE bookmark_id = ? AND user_id = ? AND id != ?')
+          .bind(bookmarkId, userId, snapshotId),
         db.prepare(
-          `UPDATE bookmark_snapshots 
-           SET is_latest = 0 
-           WHERE bookmark_id = ? AND id != ?`
-        ).bind(bookmarkId, snapshotId),
-
-        db.prepare(
-          `UPDATE bookmarks 
-           SET has_snapshot = 1, 
-               latest_snapshot_at = ?,
-               snapshot_count = snapshot_count + 1
-           WHERE id = ?`
-        ).bind(now, bookmarkId),
-      ]
-
-      await db.batch(batch)
+          'UPDATE bookmarks SET has_snapshot = 1, latest_snapshot_at = ?, snapshot_count = snapshot_count + 1 WHERE id = ? AND user_id = ?'
+        ).bind(now, bookmarkId, userId),
+      ])
 
       // 生成签名 URL（24 小时有效）
+      const baseUrl = new URL(context.request.url).origin
       const { signature, expires } = await generateSignedUrl(
-        {
-          userId,
-          resourceId: snapshotId,
-          expiresIn: 24 * 3600,
-          action: 'view',
-        },
+        { userId, resourceId: snapshotId, expiresIn: 24 * 3600, action: 'view' },
         context.env.JWT_SECRET
       )
-
-      // 构建签名 URL（复用之前的 baseUrl）
       const viewUrl = `${baseUrl}/api/v1/bookmarks/${bookmarkId}/snapshots/${snapshotId}/view?sig=${signature}&exp=${expires}&u=${userId}&a=view`
 
       return success({
         snapshot: {
           id: snapshotId,
           version,
-          file_size: totalSize,
-          image_count: uploadedImages.length,
+          file_size: finalSize,
+          image_count: uploadedHashes.length,
           content_hash: contentHash,
           snapshot_title: title,
           is_latest: true,
@@ -294,10 +186,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
       })
     } catch (error) {
       console.error('[Snapshot V2 API] Error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      const errorStack = error instanceof Error ? error.stack : ''
-      console.error('[Snapshot V2 API] Error details:', { errorMessage, errorStack })
-      return internalError(`Failed to create snapshot: ${errorMessage}`)
+      return internalError('Failed to create snapshot')
     }
   },
 ]

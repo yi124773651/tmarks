@@ -26,7 +26,6 @@ export function getR2MaxTotalBytes(env: Env): number {
   const raw = env.R2_MAX_TOTAL_BYTES
 
   if (!raw || raw.trim() === '') {
-    // 不配置则不限制
     return Number.POSITIVE_INFINITY
   }
 
@@ -38,7 +37,6 @@ export function getR2MaxTotalBytes(env: Env): number {
   }
 
   if (parsed <= 0) {
-    // 小于等于 0 视为不限制
     return Number.POSITIVE_INFINITY
   }
 
@@ -89,10 +87,9 @@ export async function checkR2Quota(
 ): Promise<R2QuotaCheckResult> {
   const limitBytes = getR2MaxTotalBytes(env)
 
-  // 无限配额：直接允许
+  // 无限配额：跳过 D1 查询，直接允许
   if (!Number.isFinite(limitBytes)) {
-    const usedBytes = await getCurrentR2UsageBytes(db)
-    return { allowed: true, limitBytes, usedBytes }
+    return { allowed: true, limitBytes, usedBytes: 0 }
   }
 
   const usedBytes = await getCurrentR2UsageBytes(db)
@@ -104,4 +101,3 @@ export async function checkR2Quota(
 
   return { allowed: true, limitBytes, usedBytes }
 }
-

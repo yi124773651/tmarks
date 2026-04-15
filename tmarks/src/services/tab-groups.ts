@@ -7,6 +7,7 @@ import type {
   ShareResponse,
   StatisticsResponse,
 } from '@/lib/types'
+import { assertData } from './index'
 
 export const tabGroupsService = {
   /**
@@ -22,17 +23,18 @@ export const tabGroupsService = {
     const endpoint = query ? `/tab-groups?${query}` : '/tab-groups'
 
     const response = await apiClient.get<TabGroupsResponse>(endpoint)
-    return response.data!
+    return assertData(response.data, 'GET /tab-groups')
   },
 
   /**
    * 获取所有标签页组（自动分页）
    */
-  async getAllTabGroups() {
+  async listAllTabGroups() {
     const allGroups: TabGroup[] = []
     let cursor: string | undefined = undefined
+    const MAX_PAGES = 50
 
-    do {
+    for (let page = 0; page < MAX_PAGES; page++) {
       const response = await this.getTabGroups({
         page_size: 100,
         page_cursor: cursor,
@@ -40,9 +42,17 @@ export const tabGroupsService = {
 
       allGroups.push(...response.tab_groups)
       cursor = response.meta?.next_cursor
-    } while (cursor)
+      if (!cursor) break
+    }
 
     return allGroups
+  },
+
+  /**
+   * @deprecated Use `listAllTabGroups()` in new code.
+   */
+  async getAllTabGroups() {
+    return this.listAllTabGroups()
   },
 
   /**
@@ -50,7 +60,7 @@ export const tabGroupsService = {
    */
   async getTabGroup(id: string) {
     const response = await apiClient.get<{ tab_group: TabGroup }>(`/tab-groups/${id}`)
-    return response.data!.tab_group
+    return assertData(response.data, `GET /tab-groups/${id}`).tab_group
   },
 
   /**
@@ -58,7 +68,7 @@ export const tabGroupsService = {
    */
   async createTabGroup(data: CreateTabGroupRequest) {
     const response = await apiClient.post<{ tab_group: TabGroup }>('/tab-groups', data)
-    return response.data!.tab_group
+    return assertData(response.data, 'POST /tab-groups').tab_group
   },
 
   /**
@@ -70,7 +80,7 @@ export const tabGroupsService = {
       parent_id: parentId,
       is_folder: true,
     })
-    return response.data!.tab_group
+    return assertData(response.data, 'POST /tab-groups (folder)').tab_group
   },
 
   /**
@@ -78,7 +88,7 @@ export const tabGroupsService = {
    */
   async updateTabGroup(id: string, data: UpdateTabGroupRequest) {
     const response = await apiClient.patch<{ tab_group: TabGroup }>(`/tab-groups/${id}`, data)
-    return response.data!.tab_group
+    return assertData(response.data, `PATCH /tab-groups/${id}`).tab_group
   },
 
   /**
@@ -109,7 +119,7 @@ export const tabGroupsService = {
       }
     }
     const response = await apiClient.patch<UpdateItemResponse>(`/tab-groups/items/${itemId}`, data)
-    return response.data!.item
+    return assertData(response.data, `PATCH /tab-groups/items/${itemId}`).item
   },
 
   /**
@@ -143,7 +153,7 @@ export const tabGroupsService = {
         position,
       }
     )
-    return response.data!.item
+    return assertData(response.data, `POST /tab-groups/items/${itemId}/move`).item
   },
 
   /**
@@ -164,7 +174,18 @@ export const tabGroupsService = {
       }>
     }
     const response = await apiClient.post<BatchAddResponse>(`/tab-groups/${groupId}/items/batch`, { items })
-    return response.data!
+    return assertData(response.data, `POST /tab-groups/${groupId}/items/batch`)
+  },
+
+  /**
+   * 批量更新标签页组位置
+   */
+  async batchUpdatePositions(updates: Array<{ id: string; position: number; parent_id: string | null }>) {
+    const response = await apiClient.patch<{ message: string; updated_count: number }>(
+      '/tab-groups/batch-update',
+      { updates }
+    )
+    return assertData(response.data, 'PATCH /tab-groups/batch-update')
   },
 
   /**
@@ -172,7 +193,7 @@ export const tabGroupsService = {
    */
   async getTrash() {
     const response = await apiClient.get<TabGroupsResponse>('/tab-groups/trash')
-    return response.data!
+    return assertData(response.data, 'GET /tab-groups/trash')
   },
 
   /**
@@ -194,7 +215,7 @@ export const tabGroupsService = {
    */
   async createShare(groupId: string, options?: { is_public?: boolean; expires_in_days?: number }) {
     const response = await apiClient.post<ShareResponse>(`/tab-groups/${groupId}/share`, options || {})
-    return response.data!
+    return assertData(response.data, `POST /tab-groups/${groupId}/share`)
   },
 
   /**
@@ -202,7 +223,7 @@ export const tabGroupsService = {
    */
   async getShare(groupId: string) {
     const response = await apiClient.get<ShareResponse>(`/tab-groups/${groupId}/share`)
-    return response.data!
+    return assertData(response.data, `GET /tab-groups/${groupId}/share`)
   },
 
   /**
@@ -217,7 +238,6 @@ export const tabGroupsService = {
    */
   async getStatistics(days: number = 30) {
     const response = await apiClient.get<StatisticsResponse>(`/statistics?days=${days}`)
-    return response.data!
+    return assertData(response.data, 'GET /statistics')
   },
 }
-

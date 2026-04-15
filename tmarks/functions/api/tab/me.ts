@@ -58,6 +58,10 @@ export const onRequestGet: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] 
             total_tags: tagCount?.count || 0,
           },
         },
+        api_key: {
+          id: context.data.api_key_id,
+          permissions: context.data.api_key_permissions,
+        },
       })
     } catch (error) {
       console.error('Get user info error:', error)

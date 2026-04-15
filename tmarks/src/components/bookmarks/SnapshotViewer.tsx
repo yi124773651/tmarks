@@ -5,20 +5,8 @@ import { Camera, ExternalLink, Trash2 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { zhCN, enUS } from 'date-fns/locale';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
-import { useAuthStore } from '@/stores/authStore';
-import { useToastStore } from '@/stores/toastStore';
-import { useQueryClient } from '@tanstack/react-query';
-import { BOOKMARKS_QUERY_KEY } from '@/hooks/useBookmarks';
 import { Z_INDEX } from '@/lib/constants/z-index';
-
-interface Snapshot {
-  id: string;
-  version: number;
-  file_size: number;
-  snapshot_title: string;
-  created_at: string;
-  view_url: string; // 签名 URL
-}
+import { useSnapshots } from './useSnapshots';
 
 interface SnapshotViewerProps {
   bookmarkId: string;
@@ -26,47 +14,31 @@ interface SnapshotViewerProps {
   snapshotCount?: number; // 从书签数据中传入，避免额外请求
 }
 
+// 格式化文件大小
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+};
+
 export function SnapshotViewer({ bookmarkId, bookmarkTitle, snapshotCount = 0 }: SnapshotViewerProps) {
   const { t, i18n } = useTranslation('bookmarks');
   const dateLocale = i18n.language === 'zh-CN' ? zhCN : enUS;
-  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<{ snapshotId: string; version: number } | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const accessToken = useAuthStore(state => state.accessToken);
-  const { addToast } = useToastStore();
-  const queryClient = useQueryClient();
-
-  const loadSnapshots = async () => {
-    setIsLoading(true);
-    try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-
-      const response = await fetch(`/api/v1/bookmarks/${bookmarkId}/snapshots`, {
-        headers,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      // API 返回格式: { data: { snapshots: [...], total: ... } }
-      setSnapshots(result.data?.snapshots || []);
-    } catch (error) {
-      console.error('Failed to load snapshots:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  
+  const {
+    snapshots,
+    isLoading,
+    deletingId,
+    pendingDelete,
+    showDeleteConfirm,
+    loadSnapshots,
+    handleRequestDelete,
+    handleConfirmDelete,
+    cancelDelete,
+  } = useSnapshots(bookmarkId);
 
   const handleOpen = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -89,70 +61,10 @@ export function SnapshotViewer({ bookmarkId, bookmarkTitle, snapshotCount = 0 }:
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
-  // 格式化文件大小
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-  };
-
   const handleView = (viewUrl: string) => {
     // 直接使用 API 返回的签名 URL
     window.open(viewUrl, '_blank');
   };
-
-  const handleRequestDelete = (snapshotId: string, version: number, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setPendingDelete({ snapshotId, version });
-    setShowDeleteConfirm(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!pendingDelete) {
-      setShowDeleteConfirm(false);
-      return;
-    }
-
-    const { snapshotId } = pendingDelete;
-    setShowDeleteConfirm(false);
-    setDeletingId(snapshotId);
-    try {
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`;
-      }
-
-      const response = await fetch(`/api/v1/bookmarks/${bookmarkId}/snapshots/${snapshotId}`, {
-        method: 'DELETE',
-        headers,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      // 从列表中移除
-      setSnapshots(prev => prev.filter(s => s.id !== snapshotId));
-      
-      // 刷新书签列表（更新快照计数）
-      queryClient.invalidateQueries({ queryKey: [BOOKMARKS_QUERY_KEY] });
-      
-      addToast('success', t('snapshot.deleteSuccess'));
-    } catch (error) {
-      console.error('Failed to delete snapshot:', error);
-      addToast('error', t('snapshot.deleteFailed'));
-    } finally {
-      setDeletingId(null);
-      setPendingDelete(null);
-    }
-  };
-
 
   // 使用 Portal 将弹窗渲染到 body，避免被父容器限制
   const modalContent = isOpen ? createPortal(
@@ -297,13 +209,10 @@ export function SnapshotViewer({ bookmarkId, bookmarkTitle, snapshotCount = 0 }:
         message={pendingDelete ? t('snapshot.deleteMessage', { version: pendingDelete.version }) : t('snapshot.deleteConfirm')}
         type="warning"
         onConfirm={handleConfirmDelete}
-        onCancel={() => {
-          setShowDeleteConfirm(false);
-          setPendingDelete(null);
-        }}
+        onCancel={cancelDelete}
       />
 
-      {!isOpen && snapshotCount > 0 && (
+      {snapshotCount > 0 && (
         <button
           onClick={handleOpen}
           className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 active:scale-95 transition-all"

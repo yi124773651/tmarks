@@ -1,39 +1,16 @@
-import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { tabGroupsService } from '@/services/tab-groups'
-import type { TabGroup } from '@/lib/types'
-import { TodoSidebar } from '@/components/tab-groups/TodoSidebar'
 import { MobileHeader } from '@/components/common/MobileHeader'
+import { TodoSidebar } from '@/components/tab-groups/TodoSidebar'
 import { useIsMobile } from '@/hooks/useMediaQuery'
-import { logger } from '@/lib/logger'
+import { useTabGroupsQuery } from '@/hooks/useTabGroupsQuery'
 
-/**
- * 待办事项页面（移动端独立页面）
- */
 export function TodoPage() {
   const { t } = useTranslation('tabGroups')
   const { t: tc } = useTranslation('common')
-  const [tabGroups, setTabGroups] = useState<TabGroup[]>([])
-  const [loading, setLoading] = useState(true)
   const isMobile = useIsMobile()
+  const tabGroupsQuery = useTabGroupsQuery()
 
-  const loadTabGroups = async () => {
-    try {
-      setLoading(true)
-      const groups = await tabGroupsService.getAllTabGroups()
-      setTabGroups(groups.filter((g) => !g.is_deleted))
-    } catch (err) {
-      logger.error('Failed to load tab groups:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadTabGroups()
-  }, [])
-
-  if (loading) {
+  if (tabGroupsQuery.isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-muted-foreground">{tc('status.loading')}</div>
@@ -43,7 +20,6 @@ export function TodoPage() {
 
   return (
     <div className={`h-screen flex flex-col bg-background ${isMobile ? 'overflow-hidden' : ''}`}>
-      {/* 移动端顶部工具栏 */}
       {isMobile && (
         <MobileHeader
           title={t('todo.title')}
@@ -53,11 +29,9 @@ export function TodoPage() {
         />
       )}
 
-      {/* 待办列表 */}
       <div className={`flex-1 overflow-hidden ${isMobile ? 'min-h-0' : ''}`}>
-        <TodoSidebar tabGroups={tabGroups} onUpdate={loadTabGroups} />
+        <TodoSidebar tabGroups={tabGroupsQuery.data || []} />
       </div>
     </div>
   )
 }
-

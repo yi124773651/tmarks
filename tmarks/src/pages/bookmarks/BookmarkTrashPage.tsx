@@ -1,20 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Archive, RotateCcw, Trash2, Calendar, Link2, ArrowLeft, AlertTriangle } from 'lucide-react'
+import { Archive, Trash2, ArrowLeft, AlertTriangle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { bookmarksService } from '@/services/bookmarks'
 import type { Bookmark } from '@/lib/types'
-import { formatDistanceToNow } from 'date-fns'
-import { zhCN, enUS } from 'date-fns/locale'
 import { useToastStore } from '@/stores/toastStore'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { logger } from '@/lib/logger'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 import { MobileHeader } from '@/components/common/MobileHeader'
+import { TrashBookmarkItem } from './TrashBookmarkItem'
 
 export function BookmarkTrashPage() {
-  const { t, i18n } = useTranslation('bookmarks')
-  const dateLocale = i18n.language === 'zh-CN' ? zhCN : enUS
+  const { t } = useTranslation('bookmarks')
   const isMobile = useIsMobile()
   const { success, error: showError } = useToastStore()
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
@@ -48,7 +46,7 @@ export function BookmarkTrashPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     loadTrash()
@@ -220,69 +218,12 @@ export function BookmarkTrashPage() {
 
               {/* 书签列表 */}
               {bookmarks.map((bookmark) => (
-                <div
+                <TrashBookmarkItem
                   key={bookmark.id}
-                  className="card p-4 sm:p-6 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-3">
-                        {bookmark.favicon ? (
-                          <img
-                            src={bookmark.favicon}
-                            alt=""
-                            className="w-6 h-6 rounded flex-shrink-0"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none'
-                            }}
-                          />
-                        ) : (
-                          <Link2 className="w-6 h-6 text-muted-foreground flex-shrink-0" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-lg font-semibold text-foreground mb-1 truncate">
-                            {bookmark.title}
-                          </h3>
-                          <p className="text-sm text-muted-foreground truncate mb-2">
-                            {bookmark.url}
-                          </p>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-4 h-4" />
-                              <span>
-                                {t('trash.deletedAt', {
-                                  time: bookmark.deleted_at
-                                    ? formatDistanceToNow(new Date(bookmark.deleted_at), {
-                                        addSuffix: true,
-                                        locale: dateLocale,
-                                      })
-                                    : ''
-                                })}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => handleRestore(bookmark.id, bookmark.title)}
-                        className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-success text-success-foreground rounded-lg hover:bg-success/90 transition-colors text-sm"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                        {t('trash.restore')}
-                      </button>
-                      <button
-                        onClick={() => handlePermanentDelete(bookmark.id, bookmark.title)}
-                        className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-colors text-sm"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        {t('trash.delete')}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  bookmark={bookmark}
+                  onRestore={handleRestore}
+                  onDelete={handlePermanentDelete}
+                />
               ))}
             </div>
           )}

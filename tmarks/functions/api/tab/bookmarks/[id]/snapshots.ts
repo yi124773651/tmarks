@@ -203,20 +203,22 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
       const snapshotId = generateNanoId()
       const now = new Date().toISOString()
 
-      // 开始事务
+      // 开始事务（版本号在 INSERT 中原子分配，避免并发竞态）
       const batch = [
-        // 插入新快照
+        // 插入新快照，原子化分配版本号
         db.prepare(
-          `INSERT INTO bookmark_snapshots 
-           (id, bookmark_id, user_id, version, is_latest, content_hash, 
-            r2_key, r2_bucket, file_size, mime_type, snapshot_url, 
+          `INSERT INTO bookmark_snapshots
+           (id, bookmark_id, user_id, version, is_latest, content_hash,
+            r2_key, r2_bucket, file_size, mime_type, snapshot_url,
             snapshot_title, snapshot_status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 1, ?, ?, 'tmarks-snapshots', ?, 'text/html', ?, ?, 'completed', ?, ?)`
+           VALUES (?, ?, ?,
+            (SELECT COALESCE(MAX(version), 0) + 1 FROM bookmark_snapshots WHERE bookmark_id = ?),
+            1, ?, ?, 'tmarks-snapshots', ?, 'text/html', ?, ?, 'completed', ?, ?)`
         ).bind(
           snapshotId,
           bookmarkId,
           userId,
-          version,
+          bookmarkId,
           contentHash,
           r2Key,
           originalSize,
@@ -310,15 +312,24 @@ async function cleanupOldSnapshots(
       return
     }
 
-    // 删除 R2 文件
+    // 删除 R2 文件（跳过失败的）
+    const deletedIds: unknown[] = []
     for (const snapshot of toDelete.results) {
-      await bucket.delete(snapshot.r2_key as string)
+      try {
+        await bucket.delete(snapshot.r2_key as string)
+        deletedIds.push(snapshot.id)
+      } catch (error) {
+        console.error('Failed to delete R2 file:', snapshot.r2_key, error)
+      }
     }
 
-    // 删除数据库记录
-    const ids = toDelete.results.map((s) => s.id).join("','")
+    if (deletedIds.length === 0) return
+
+    // 仅删除 R2 文件已成功删除的数据库记录
+    const placeholders = deletedIds.map(() => '?').join(',')
     await db
-      .prepare(`DELETE FROM bookmark_snapshots WHERE id IN ('${ids}')`)
+      .prepare(`DELETE FROM bookmark_snapshots WHERE id IN (${placeholders})`)
+      .bind(...deletedIds)
       .run()
   } catch (error) {
     console.error('Cleanup snapshots error:', error)

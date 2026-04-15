@@ -62,15 +62,15 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const now = new Date().toISOString()
       updates.push('updated_at = ?')
       values.push(now)
-      values.push(tagId)
+      values.push(tagId, userId)
 
-      await context.env.DB.prepare(`UPDATE tags SET ${updates.join(', ')} WHERE id = ?`)
+      await context.env.DB.prepare(`UPDATE tags SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`)
         .bind(...values)
         .run()
 
       // 获取更新后的标签
-      const updatedTag = await context.env.DB.prepare('SELECT * FROM tags WHERE id = ?')
-        .bind(tagId)
+      const updatedTag = await context.env.DB.prepare('SELECT * FROM tags WHERE id = ? AND user_id = ?')
+        .bind(tagId, userId)
         .first<Tag>()
 
       return success({ tag: updatedTag })
@@ -103,13 +103,13 @@ export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const now = new Date().toISOString()
 
       // 软删除标签
-      await context.env.DB.prepare('UPDATE tags SET deleted_at = ?, updated_at = ? WHERE id = ?')
-        .bind(now, now, tagId)
+      await context.env.DB.prepare('UPDATE tags SET deleted_at = ?, updated_at = ? WHERE id = ? AND user_id = ?')
+        .bind(now, now, tagId, userId)
         .run()
 
       // 删除所有书签-标签关联
-      await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE tag_id = ?')
-        .bind(tagId)
+      await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE tag_id = ? AND user_id = ?')
+        .bind(tagId, userId)
         .run()
 
       return noContent()

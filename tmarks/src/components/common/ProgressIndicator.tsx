@@ -6,8 +6,9 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CheckCircle, Loader2, Clock, Zap } from 'lucide-react'
+import { useAnimatedProgress } from './useAnimatedProgress'
 
-interface ProgressInfo {
+export interface ProgressInfo {
   current: number
   total: number
   percentage: number
@@ -17,7 +18,7 @@ interface ProgressInfo {
   speed?: number // items per second
 }
 
-interface ProgressIndicatorProps {
+export interface ProgressIndicatorProps {
   progress: ProgressInfo
   variant?: 'default' | 'compact' | 'detailed'
   showSpeed?: boolean
@@ -33,17 +34,8 @@ export function ProgressIndicator({
   className = ''
 }: ProgressIndicatorProps) {
   const { t } = useTranslation('common')
-  const [animatedPercentage, setAnimatedPercentage] = useState(0)
+  const animatedPercentage = useAnimatedProgress(progress.percentage)
   const [isComplete, setIsComplete] = useState(false)
-
-  // 动画效果
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setAnimatedPercentage(progress.percentage)
-    }, 100)
-
-    return () => clearTimeout(timer)
-  }, [progress.percentage])
 
   // 完成状态检测
   useEffect(() => {
@@ -210,150 +202,6 @@ export function ProgressIndicator({
           </span>
         )}
       </div>
-    </div>
-  )
-}
-
-/**
- * 简单的进度条组件
- */
-interface SimpleProgressProps {
-  percentage: number
-  size?: 'sm' | 'md' | 'lg'
-  color?: 'blue' | 'green' | 'red' | 'yellow'
-  animated?: boolean
-  className?: string
-}
-
-export function SimpleProgress({
-  percentage,
-  size = 'md',
-  color = 'blue',
-  animated = false,
-  className = ''
-}: SimpleProgressProps) {
-  const [animatedPercentage, setAnimatedPercentage] = useState(0)
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setAnimatedPercentage(percentage)
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [percentage])
-
-  const sizeClasses = {
-    sm: 'h-1',
-    md: 'h-2',
-    lg: 'h-3'
-  }
-
-  const colorClasses = {
-    blue: 'bg-primary',
-    green: 'bg-success',
-    red: 'bg-destructive',
-    yellow: 'bg-warning'
-  }
-
-  return (
-    <div className={`w-full bg-muted rounded-full overflow-hidden ${sizeClasses[size]} ${className}`}>
-      <div 
-        className={`${sizeClasses[size]} rounded-full transition-all duration-500 ease-out ${colorClasses[color]} ${
-          animated ? 'relative' : ''
-        }`}
-        style={{ width: `${animatedPercentage}%` }}
-      >
-        {animated && (
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" />
-        )}
-      </div>
-    </div>
-  )
-}
-
-/**
- * 圆形进度指示器
- */
-interface CircularProgressProps {
-  percentage: number
-  size?: number
-  strokeWidth?: number
-  color?: string
-  backgroundColor?: string
-  showPercentage?: boolean
-  className?: string
-}
-
-export function CircularProgress({
-  percentage,
-  size = 64,
-  strokeWidth = 4,
-  color,
-  backgroundColor,
-  showPercentage = true,
-  className = ''
-}: CircularProgressProps) {
-  const [animatedPercentage, setAnimatedPercentage] = useState(0)
-
-  // 使用 CSS 变量作为默认颜色
-  const defaultColor = typeof window !== 'undefined'
-    ? getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || 'hsl(221.2 83.2% 53.3%)'
-    : 'hsl(221.2 83.2% 53.3%)'
-  const defaultBgColor = typeof window !== 'undefined'
-    ? getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || 'hsl(210 40% 96.1%)'
-    : 'hsl(210 40% 96.1%)'
-
-  const finalColor = color || defaultColor
-  const finalBgColor = backgroundColor || defaultBgColor
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setAnimatedPercentage(percentage)
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [percentage])
-
-  const radius = (size - strokeWidth) / 2
-  const circumference = radius * 2 * Math.PI
-  const strokeDasharray = circumference
-  const strokeDashoffset = circumference - (animatedPercentage / 100) * circumference
-
-  return (
-    <div className={`relative inline-flex items-center justify-center ${className}`}>
-      <svg
-        width={size}
-        height={size}
-        className="transform -rotate-90"
-      >
-        {/* 背景圆 */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={finalBgColor}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-        />
-        {/* 进度圆 */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={finalColor}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-          strokeDasharray={strokeDasharray}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          className="transition-all duration-500 ease-out"
-        />
-      </svg>
-      {showPercentage && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-sm font-medium text-foreground">
-            {Math.round(animatedPercentage)}%
-          </span>
-        </div>
-      )}
     </div>
   )
 }

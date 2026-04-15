@@ -1,9 +1,12 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import path from 'path'
+import { fileURLToPath } from 'node:url'
 import viteCompression from 'vite-plugin-compression'
 // import { visualizer } from 'rollup-plugin-visualizer'
 // import JavaScriptObfuscator from 'javascript-obfuscator'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // 自定义代码混淆插件
 // function obfuscatorPlugin(): Plugin {

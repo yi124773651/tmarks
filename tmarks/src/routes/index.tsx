@@ -16,9 +16,6 @@ const TabGroupDetailPage = lazy(() => import('@/pages/tab-groups/TabGroupDetailP
 const TrashPage = lazy(() => import('@/pages/tab-groups/TrashPage').then(m => ({ default: m.TrashPage })))
 const StatisticsPage = lazy(() => import('@/pages/tab-groups/StatisticsPage').then(m => ({ default: m.StatisticsPage })))
 const TodoPage = lazy(() => import('@/pages/tab-groups/TodoPage').then(m => ({ default: m.TodoPage })))
-const ApiKeysPage = lazy(() => import('@/pages/settings/ApiKeysPage').then(m => ({ default: m.ApiKeysPage })))
-const ShareSettingsPage = lazy(() => import('@/pages/settings/ShareSettingsPage').then(m => ({ default: m.ShareSettingsPage })))
-const ImportExportPage = lazy(() => import('@/pages/settings/ImportExportPage').then(m => ({ default: m.ImportExportPage })))
 const PermissionsPage = lazy(() => import('@/pages/settings/PermissionsPage').then(m => ({ default: m.PermissionsPage })))
 const GeneralSettingsPage = lazy(() => import('@/pages/settings/GeneralSettingsPage').then(m => ({ default: m.GeneralSettingsPage })))
 const PublicSharePage = lazy(() => import('@/pages/share/PublicSharePage').then(m => ({ default: m.PublicSharePage })))
@@ -72,9 +69,10 @@ export function AppRouter() {
             <Route path="/tab/statistics" element={<StatisticsPage />} />
             <Route path="/tab/:id" element={<TabGroupDetailPage />} />
             <Route path="/settings/general" element={<GeneralSettingsPage />} />
-            <Route path="/api-keys" element={<ApiKeysPage />} />
-            <Route path="/share-settings" element={<ShareSettingsPage />} />
-            <Route path="/import-export" element={<ImportExportPage />} />
+            {/* 旧独立页面重定向到设置页面对应 section */}
+            <Route path="/api-keys" element={<Navigate to="/settings/general?section=api" replace />} />
+            <Route path="/share-settings" element={<Navigate to="/settings/general?section=share" replace />} />
+            <Route path="/import-export" element={<Navigate to="/settings/general?section=data" replace />} />
             <Route path="/permissions" element={<PermissionsPage />} />
             <Route path="/extension" element={<ExtensionPage />} />
             <Route path="/about" element={<AboutPage />} />

@@ -16,14 +16,30 @@ export class ApiError extends Error {
 }
 
 let isRefreshing = false
-let refreshSubscribers: Array<(token: string) => void> = []
+let refreshSubscribers: Array<{
+  resolve: (token: string) => void
+  reject: (error: Error) => void
+}> = []
 
-function subscribeToRefresh(callback: (token: string) => void) {
-  refreshSubscribers.push(callback)
+function subscribeToRefresh(): { promise: Promise<string>; unsubscribe: () => void } {
+  let entry: { resolve: (token: string) => void; reject: (error: Error) => void }
+  const promise = new Promise<string>((resolve, reject) => {
+    entry = { resolve, reject }
+    refreshSubscribers.push(entry)
+  })
+  const unsubscribe = () => {
+    refreshSubscribers = refreshSubscribers.filter(e => e !== entry)
+  }
+  return { promise, unsubscribe }
 }
 
 function onRefreshed(token: string) {
-  refreshSubscribers.forEach(callback => callback(token))
+  refreshSubscribers.forEach(({ resolve }) => resolve(token))
+  refreshSubscribers = []
+}
+
+function rejectSubscribers(error: Error) {
+  refreshSubscribers.forEach(({ reject }) => reject(error))
   refreshSubscribers = []
 }
 
@@ -78,34 +94,31 @@ class HttpClient {
             throw new Error('Failed to get new token after refresh')
           }
         } catch (error) {
+          const err = error instanceof Error ? error : new Error('Token refresh failed')
+          rejectSubscribers(err)
           this.clearAuthAndRedirect()
-          if (error instanceof Error) {
-            logger.error('Token refresh failed:', error)
-          }
+          logger.error('Token refresh failed:', err)
           throw error
         } finally {
           isRefreshing = false
         }
       } else {
-        // 等待刷新完成
-        return new Promise<string>((resolve, reject) => {
-          const timeout = setTimeout(() => {
+        const { promise, unsubscribe } = subscribeToRefresh()
+        let timeoutId: ReturnType<typeof setTimeout>
+        const timeout = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => {
+            unsubscribe()
             reject(new Error('Token refresh timeout'))
-          }, 10000) // 10秒超时
-
-          subscribeToRefresh((token: string) => {
-            clearTimeout(timeout)
-            resolve(token)
-          })
+          }, 10000)
         })
+        return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId))
       }
     }
 
     try {
       let response = await makeRequest(token || '')
 
-      // 处理 401 Unauthorized - 尝试刷新 token
-      if (response.status === 401) {
+      if (response.status === 401 && !endpoint.includes('/auth/refresh')) {
         try {
           const newToken = await handle401Error()
           if (newToken) {
@@ -113,7 +126,6 @@ class HttpClient {
             response = await makeRequest(newToken)
           }
         } catch {
-          // 刷新失败，抛出原始的401错误
           let data: { error?: { code: string; message: string } } = { error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }
           try {
             const text = await response.text()
@@ -122,35 +134,31 @@ class HttpClient {
               data = parsed
             }
           } catch {
-            // 使用默认错误
+            // use default error
           }
           const apiError = data.error || { code: 'UNAUTHORIZED', message: 'Unauthorized' }
           throw new ApiError(apiError.code, apiError.message, response.status)
         }
       }
 
-      // 处理 204 No Content
       if (response.status === 204) {
-        return { data: undefined as T }
+        return {} as ApiResponse<T>
       }
 
-      // 尝试解析JSON响应
       let data: unknown
       try {
         const text = await response.text()
         if (!text || text.trim() === '') {
-          // 空响应体
           if (!response.ok) {
             throw new ApiError('EMPTY_RESPONSE', 'Server returned empty response', response.status)
           }
-          return { data: undefined as T }
+          return {} as ApiResponse<T>
         }
         data = JSON.parse(text) as unknown
       } catch (parseError) {
         if (parseError instanceof ApiError) {
           throw parseError
         }
-        // JSON解析失败
         throw new ApiError(
           'INVALID_RESPONSE',
           `Failed to parse server response: ${parseError instanceof Error ? parseError.message : 'Invalid JSON'}`,
@@ -170,7 +178,6 @@ class HttpClient {
         throw error
       }
 
-      // 网络错误或其他错误
       throw new ApiError(
         'NETWORK_ERROR',
         error instanceof Error ? error.message : 'Network request failed',
@@ -183,7 +190,6 @@ class HttpClient {
     const { clearAuth } = useAuthStore.getState()
     clearAuth()
 
-    // 重定向到登录页（避免无限循环，检查当前是否已在登录页）
     if (!window.location.pathname.includes('/login')) {
       window.location.href = '/login'
     }

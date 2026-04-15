@@ -5,7 +5,7 @@
 import type { EventContext } from '@cloudflare/workers-types'
 import type { Env, RouteParams } from '../../../lib/types'
 import type { ApiKeyAuthContext } from '../../../middleware/api-key-auth-pages'
-import { success, badRequest, internalError } from '../../../lib/response'
+import { success, badRequest } from '../../../lib/response'
 import { isValidUrl, sanitizeString } from '../../../lib/validation'
 import { generateUUID } from '../../../lib/crypto'
 import { invalidatePublicShareCache } from '../../shared/cache'
@@ -186,13 +186,12 @@ export async function batchCreateBookmarks(
 
     } catch (error) {
       result.failed++
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error(`[Batch Handler] Failed to create bookmark ${i}:`, error)
       result.errors!.push({
         index: i,
         url: item.url || '',
-        error: errorMessage
+        error: 'Failed to create bookmark'
       })
-      console.error(`[Batch Handler] Failed to create bookmark ${i}:`, error)
     }
   }
 

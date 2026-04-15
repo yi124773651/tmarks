@@ -1,10 +1,18 @@
 /**
- * 排序工具函数
+ * Tab-group list view sorting helpers.
+ *
+ * Server canonical order:
+ * - `/api/v1/tab-groups` returns groups in `created_at DESC`
+ *
+ * Frontend view order:
+ * - `created`: preserve server semantics
+ * - `title`: local presentation sort only
+ * - `count`: local presentation sort only
  */
 
 export type SortOption = 'created' | 'title' | 'count'
 
-export function sortTabGroups<T extends { title: string; created_at: string; item_count?: number }>(
+export function sortTabGroupsForView<T extends { title: string; created_at: string; item_count?: number }>(
   groups: T[],
   sortBy: SortOption
 ): T[] {
@@ -20,3 +28,5 @@ export function sortTabGroups<T extends { title: string; created_at: string; ite
       return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   }
 }
+
+export const sortTabGroups = sortTabGroupsForView

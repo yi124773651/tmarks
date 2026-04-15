@@ -6,6 +6,7 @@ import type {
   UpdateTagRequest,
   TagQueryParams,
 } from '@/lib/types'
+import { assertData } from './index'
 
 export const tagsService = {
   /**
@@ -20,7 +21,7 @@ export const tagsService = {
     const endpoint = query ? `/tags?${query}` : '/tags'
 
     const response = await apiClient.get<TagsResponse>(endpoint)
-    return response.data!
+    return assertData(response.data, 'GET /tags')
   },
 
   /**
@@ -28,7 +29,7 @@ export const tagsService = {
    */
   async createTag(data: CreateTagRequest) {
     const response = await apiClient.post<{ tag: Tag }>('/tags', data)
-    return response.data!.tag
+    return assertData(response.data, 'POST /tags').tag
   },
 
   /**
@@ -36,7 +37,7 @@ export const tagsService = {
    */
   async updateTag(id: string, data: UpdateTagRequest) {
     const response = await apiClient.patch<{ tag: Tag }>(`/tags/${id}`, data)
-    return response.data!.tag
+    return assertData(response.data, `PATCH /tags/${id}`).tag
   },
 
   /**

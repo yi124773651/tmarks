@@ -87,10 +87,10 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
       if (updates.length > 0) {
         updates.push('updated_at = ?')
         values.push(now)
-        values.push(bookmarkId)
+        values.push(bookmarkId, userId)
 
         await context.env.DB.prepare(
-          `UPDATE bookmarks SET ${updates.join(', ')} WHERE id = ?`
+          `UPDATE bookmarks SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`
         )
           .bind(...values)
           .run()
@@ -98,49 +98,42 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
 
       // 更新标签关联
       if (body.tags !== undefined) {
-        // 新版：直接传标签名称，后端自动创建或链接
         const { createOrLinkTags } = await import('../../../lib/tags')
-        
-        // 删除现有标签关联
-        await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ?')
-          .bind(bookmarkId)
+        await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ? AND user_id = ?')
+          .bind(bookmarkId, userId)
           .run()
-        
-        // 使用批量处理函数
         if (body.tags.length > 0) {
           await createOrLinkTags(context.env.DB, bookmarkId, body.tags, userId)
         }
       } else if (body.tag_ids !== undefined) {
-        // 兼容旧版：传标签 ID
-        // 删除现有标签关联
-        await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ?')
-          .bind(bookmarkId)
-          .run()
-
-        // 添加新的标签关联
+        const stmts = [
+          context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ? AND user_id = ?')
+            .bind(bookmarkId, userId),
+        ]
         if (body.tag_ids.length > 0) {
           for (const tagId of body.tag_ids) {
-            await context.env.DB.prepare(
-              'INSERT INTO bookmark_tags (bookmark_id, tag_id, user_id, created_at) VALUES (?, ?, ?, ?)'
+            stmts.push(
+              context.env.DB.prepare(
+                'INSERT INTO bookmark_tags (bookmark_id, tag_id, user_id, created_at) VALUES (?, ?, ?, ?)'
+              ).bind(bookmarkId, tagId, userId, now)
             )
-              .bind(bookmarkId, tagId, userId, now)
-              .run()
           }
         }
+        await context.env.DB.batch(stmts)
       }
 
       // 获取更新后的书签
-      const updatedBookmarkRow = await context.env.DB.prepare('SELECT * FROM bookmarks WHERE id = ?')
-        .bind(bookmarkId)
+      const updatedBookmarkRow = await context.env.DB.prepare('SELECT * FROM bookmarks WHERE id = ? AND user_id = ?')
+        .bind(bookmarkId, userId)
         .first<BookmarkRow>()
 
       const { results: tags } = await context.env.DB.prepare(
         `SELECT t.id, t.name, t.color
          FROM tags t
          INNER JOIN bookmark_tags bt ON t.id = bt.tag_id
-         WHERE bt.bookmark_id = ? AND t.deleted_at IS NULL`
+         WHERE bt.bookmark_id = ? AND bt.user_id = ? AND t.deleted_at IS NULL`
       )
-        .bind(bookmarkId)
+        .bind(bookmarkId, userId)
         .all<{ id: string; name: string; color: string | null }>()
 
       if (!updatedBookmarkRow) {
@@ -181,18 +174,10 @@ export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
         return notFound('Bookmark not found')
       }
 
-      // 软删除，同时清除点击统计
       const now = new Date().toISOString()
       await context.env.DB.prepare(
-        'UPDATE bookmarks SET deleted_at = ?, updated_at = ?, click_count = 0, last_clicked_at = NULL WHERE id = ?'
-      )
-        .bind(now, now, bookmarkId)
-        .run()
-
-      // 删除标签关联
-      await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ?')
-        .bind(bookmarkId)
-        .run()
+        'UPDATE bookmarks SET deleted_at = ?, updated_at = ?, click_count = 0, last_clicked_at = NULL WHERE id = ? AND user_id = ?'
+      ).bind(now, now, bookmarkId, userId).run()
 
       await invalidatePublicShareCache(context.env, userId)
 
@@ -226,23 +211,23 @@ export const onRequestPut: PagesFunction<Env, RouteParams, AuthContext>[] = [
       // 恢复书签
       const now = new Date().toISOString()
       await context.env.DB.prepare(
-        'UPDATE bookmarks SET deleted_at = NULL, updated_at = ? WHERE id = ?'
+        'UPDATE bookmarks SET deleted_at = NULL, updated_at = ? WHERE id = ? AND user_id = ?'
       )
-        .bind(now, bookmarkId)
+        .bind(now, bookmarkId, userId)
         .run()
 
       // 获取恢复后的书签
-      const restoredBookmarkRow = await context.env.DB.prepare('SELECT * FROM bookmarks WHERE id = ?')
-        .bind(bookmarkId)
+      const restoredBookmarkRow = await context.env.DB.prepare('SELECT * FROM bookmarks WHERE id = ? AND user_id = ?')
+        .bind(bookmarkId, userId)
         .first<BookmarkRow>()
 
       const { results: tags } = await context.env.DB.prepare(
         `SELECT t.id, t.name, t.color
          FROM tags t
          INNER JOIN bookmark_tags bt ON t.id = bt.tag_id
-         WHERE bt.bookmark_id = ? AND t.deleted_at IS NULL`
+         WHERE bt.bookmark_id = ? AND bt.user_id = ? AND t.deleted_at IS NULL`
       )
-        .bind(bookmarkId)
+        .bind(bookmarkId, userId)
         .all<{ id: string; name: string; color: string | null }>()
 
       if (!restoredBookmarkRow) {

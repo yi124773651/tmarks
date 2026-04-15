@@ -20,9 +20,9 @@ export function ApiKeyCard({ apiKey, onViewDetails, onRevoke, onDelete }: ApiKey
   const dateLocale = i18n.language === 'zh-CN' ? zhCN : enUS
 
   const statusIcon = {
-    active: '🟢',
-    revoked: '🔴',
-    expired: '🟠',
+    active: <span className="inline-block w-2 h-2 rounded-full bg-green-500" />,
+    revoked: <span className="inline-block w-2 h-2 rounded-full bg-red-500" />,
+    expired: <span className="inline-block w-2 h-2 rounded-full bg-orange-500" />,
   }[apiKey.status]
 
   const statusText = t(`apiKey.status.${apiKey.status}`)

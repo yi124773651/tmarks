@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from '@/lib/api-client'
+import { assertData } from './index'
 
 export interface ApiKey {
   id: string
@@ -66,32 +67,32 @@ export async function getApiKeys(): Promise<{
   keys: ApiKey[]
   quota: { used: number; limit: number }
 }> {
-  const response = await apiClient.get('/settings/api-keys')
-  return response.data as { keys: ApiKey[]; quota: { used: number; limit: number } }
+  const response = await apiClient.get<{ keys: ApiKey[]; quota: { used: number; limit: number } }>('/settings/api-keys')
+  return assertData(response.data, 'GET /settings/api-keys')
 }
 
 /**
  * 获取单个 API Key 详情
  */
 export async function getApiKey(id: string): Promise<ApiKeyWithStats> {
-  const response = await apiClient.get(`/settings/api-keys/${id}`)
-  return response.data as ApiKeyWithStats
+  const response = await apiClient.get<ApiKeyWithStats>(`/settings/api-keys/${id}`)
+  return assertData(response.data, `GET /settings/api-keys/${id}`)
 }
 
 /**
  * 创建新的 API Key
  */
 export async function createApiKey(data: CreateApiKeyRequest): Promise<ApiKeyWithKey> {
-  const response = await apiClient.post('/settings/api-keys', data)
-  return response.data as ApiKeyWithKey
+  const response = await apiClient.post<ApiKeyWithKey>('/settings/api-keys', data)
+  return assertData(response.data, 'POST /settings/api-keys')
 }
 
 /**
  * 更新 API Key
  */
 export async function updateApiKey(id: string, data: UpdateApiKeyRequest): Promise<ApiKey> {
-  const response = await apiClient.patch(`/settings/api-keys/${id}`, data)
-  return response.data as ApiKey
+  const response = await apiClient.patch<ApiKey>(`/settings/api-keys/${id}`, data)
+  return assertData(response.data, `PATCH /settings/api-keys/${id}`)
 }
 
 /**
@@ -115,6 +116,6 @@ export async function getApiKeyLogs(
   id: string,
   limit: number = 10
 ): Promise<{ logs: ApiKeyLog[]; limit: number }> {
-  const response = await apiClient.get(`/settings/api-keys/${id}/logs?limit=${limit}`)
-  return response.data as { logs: ApiKeyLog[]; limit: number }
+  const response = await apiClient.get<{ logs: ApiKeyLog[]; limit: number }>(`/settings/api-keys/${id}/logs?limit=${limit}`)
+  return assertData(response.data, `GET /settings/api-keys/${id}/logs`)
 }

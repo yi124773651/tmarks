@@ -18,9 +18,6 @@ const DEFAULT_PREFERENCES: Partial<UserPreferences> = {
   enable_tag_selection_auto_clear: false,
   default_bookmark_icon: 'orbital-spinner',
   snapshot_retention_count: 5,
-  snapshot_auto_create: false,
-  snapshot_auto_dedupe: true,
-  snapshot_auto_cleanup_days: 0,
 }
 
 /**

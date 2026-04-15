@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Book, HelpCircle, MessageCircle, FileText } from 'lucide-react'
+import { HelpCircle, MessageCircle, FileText } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 export function HelpPage() {
@@ -20,8 +20,8 @@ export function HelpPage() {
     {
       title: t('help.guides.quickStart.title'),
       description: t('help.guides.quickStart.description'),
-      icon: Book,
-      link: '#quick-start'
+      icon: FileText,
+      link: '/extension'
     },
     {
       title: t('help.guides.extension.title'),
@@ -33,13 +33,13 @@ export function HelpPage() {
       title: t('help.guides.importExport.title'),
       description: t('help.guides.importExport.description'),
       icon: FileText,
-      link: '/settings/general?tab=data'
+      link: '/settings/general?section=data'
     },
     {
       title: t('help.guides.share.title'),
       description: t('help.guides.share.description'),
       icon: FileText,
-      link: '/settings/general?tab=share'
+      link: '/settings/general?section=share'
     }
   ]
 

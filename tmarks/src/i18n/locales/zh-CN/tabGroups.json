@@ -166,6 +166,7 @@
     "moveTabMessage": "确定要将此标签页移动到\"{{title}}\"吗？",
     "archiveTab": "归档标签页",
     "archiveTabMessage": "确定要归档这个标签页吗？归档后可以在归档视图中查看。",
+    "tabMoved": "已移至\"{{title}}\"",
     "tabArchived": "标签页已归档",
     "cancelTaskMark": "取消任务标记",
     "markAsCompleted": "标记为已完成任务",

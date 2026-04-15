@@ -8,19 +8,20 @@ import { useTranslation } from 'react-i18next'
 import { Shield, Download, Info, ChevronDown, ChevronUp, HelpCircle } from 'lucide-react'
 import { InfoBox } from '../InfoBox'
 import { SettingsSection, SettingsDivider } from '../SettingsSection'
-import * as simpleIcons from 'simple-icons'
+import { siGooglechrome, siBrave, siOpera, siQq } from 'simple-icons'
 
-type BrowserType = 'chrome' | 'firefox' | 'edge' | 'opera' | 'brave' | '360' | 'qq' | 'sogou'
+type BrowserType = 'chrome' | 'edge' | 'opera' | 'brave' | '360' | 'qq' | 'sogou'
 
 export function BrowserSettingsTab() {
   const { t } = useTranslation('settings')
   const [showInstallGuide, setShowInstallGuide] = useState(false)
   const [showFaq, setShowFaq] = useState(false)
 
-  const handleDownload = (browser: BrowserType) => {
+  const handleDownload = (_browser: BrowserType) => {
+    void _browser
     const link = document.createElement('a')
-    link.href = `/extensions/tmarks-extension-${browser}.zip`
-    link.download = `tmarks-extension-${browser}.zip`
+    link.href = `/extensions/tmarks-extension-chrome.zip`
+    link.download = 'tmarks-extension-chrome.zip'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -31,11 +32,10 @@ export function BrowserSettingsTab() {
 
     const getIconData = () => {
       switch (browser) {
-        case 'chrome': return simpleIcons.siGooglechrome
-        case 'firefox': return simpleIcons.siFirefox
-        case 'brave': return simpleIcons.siBrave
-        case 'opera': return simpleIcons.siOpera
-        case 'qq': return simpleIcons.siQq
+        case 'chrome': return siGooglechrome
+        case 'brave': return siBrave
+        case 'opera': return siOpera
+        case 'qq': return siQq
         default: return null
       }
     }
@@ -67,7 +67,6 @@ export function BrowserSettingsTab() {
   const browsers = [
     { id: 'chrome', name: 'Chrome' },
     { id: 'edge', name: 'Edge' },
-    { id: 'firefox', name: 'Firefox' },
     { id: 'brave', name: 'Brave' },
     { id: 'opera', name: 'Opera' },
     { id: '360', name: '360' },

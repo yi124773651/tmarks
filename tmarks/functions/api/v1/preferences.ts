@@ -2,87 +2,15 @@ import type { PagesFunction } from '@cloudflare/workers-types'
 import type { Env, RouteParams, SQLParam } from '../../lib/types'
 import { success, badRequest, notFound, internalError } from '../../lib/response'
 import { requireAuth, AuthContext } from '../../middleware/auth'
-
-interface UserPreferences {
-  user_id: string
-  theme: 'light' | 'dark' | 'system'
-  page_size: number
-  view_mode: 'list' | 'card' | 'minimal' | 'title'
-  density: 'compact' | 'normal' | 'comfortable'
-  tag_layout?: 'grid' | 'masonry'
-  sort_by?: 'created' | 'updated' | 'pinned' | 'popular'
-  search_auto_clear_seconds?: number
-  tag_selection_auto_clear_seconds?: number
-  enable_search_auto_clear?: number
-  enable_tag_selection_auto_clear?: number
-  default_bookmark_icon?: string
-  snapshot_retention_count?: number
-  snapshot_auto_create?: number
-  snapshot_auto_dedupe?: number
-  snapshot_auto_cleanup_days?: number
-  updated_at: string
-}
-
-interface UpdatePreferencesRequest {
-  theme?: 'light' | 'dark' | 'system'
-  page_size?: number
-  view_mode?: 'list' | 'card' | 'minimal' | 'title'
-  density?: 'compact' | 'normal' | 'comfortable'
-  tag_layout?: 'grid' | 'masonry'
-  sort_by?: 'created' | 'updated' | 'pinned' | 'popular'
-  search_auto_clear_seconds?: number
-  tag_selection_auto_clear_seconds?: number
-  enable_search_auto_clear?: boolean
-  enable_tag_selection_auto_clear?: boolean
-  default_bookmark_icon?: string
-  snapshot_retention_count?: number
-  snapshot_auto_create?: boolean
-  snapshot_auto_dedupe?: boolean
-  snapshot_auto_cleanup_days?: number
-}
-
-async function hasTagLayoutColumn(db: D1Database): Promise<boolean> {
-  try {
-    await db.prepare('SELECT tag_layout FROM user_preferences LIMIT 1').first()
-    return true
-  } catch (error) {
-    if (error instanceof Error && /no such column: tag_layout/i.test(error.message)) {
-      return false
-    }
-    throw error
-  }
-}
-
-async function hasSortByColumn(db: D1Database): Promise<boolean> {
-  try {
-    await db.prepare('SELECT sort_by FROM user_preferences LIMIT 1').first()
-    return true
-  } catch (error) {
-    if (error instanceof Error && /no such column: sort_by/i.test(error.message)) {
-      return false
-    }
-    throw error
-  }
-}
-
-// 某些旧数据库可能还没有自动清空相关字段，做一次能力探测，避免 500
-async function hasAutomationColumns(db: D1Database): Promise<boolean> {
-  try {
-    // 这些字段在同一个迁移中加入，只检测一个列即可代表这一批字段是否存在
-    await db
-      .prepare('SELECT search_auto_clear_seconds FROM user_preferences LIMIT 1')
-      .first()
-    return true
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      /no such column: search_auto_clear_seconds/i.test(error.message)
-    ) {
-      return false
-    }
-    throw error
-  }
-}
+import {
+  UserPreferences,
+  UpdatePreferencesRequest,
+  hasTagLayoutColumn,
+  hasSortByColumn,
+  hasAutomationColumns,
+  mapPreferences,
+  validatePreferences
+} from './preferences-helpers'
 
 // GET /api/v1/preferences - 获取用户偏好
 export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
@@ -102,24 +30,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
       }
 
       return success({
-        preferences: {
-          theme: preferences.theme,
-          page_size: preferences.page_size,
-          view_mode: preferences.view_mode,
-          density: preferences.density,
-          tag_layout: preferences.tag_layout ?? 'grid',
-          sort_by: preferences.sort_by ?? 'popular',
-          search_auto_clear_seconds: preferences.search_auto_clear_seconds ?? 15,
-          tag_selection_auto_clear_seconds: preferences.tag_selection_auto_clear_seconds ?? 30,
-          enable_search_auto_clear: preferences.enable_search_auto_clear === 1,
-          enable_tag_selection_auto_clear: preferences.enable_tag_selection_auto_clear === 1,
-          default_bookmark_icon: preferences.default_bookmark_icon ?? 'bookmark',
-          snapshot_retention_count: preferences.snapshot_retention_count ?? 5,
-          snapshot_auto_create: preferences.snapshot_auto_create === 1,
-          snapshot_auto_dedupe: preferences.snapshot_auto_dedupe === 1,
-          snapshot_auto_cleanup_days: preferences.snapshot_auto_cleanup_days ?? 0,
-          updated_at: preferences.updated_at,
-        },
+        preferences: mapPreferences(preferences),
       })
     } catch (error) {
       console.error('Get preferences error:', error)
@@ -140,65 +51,10 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const automationSupported = await hasAutomationColumns(context.env.DB)
 
       // 验证输入
-      if (body.theme && !['light', 'dark', 'system'].includes(body.theme)) {
-        return badRequest('Invalid theme value')
+      const validationError = validatePreferences(body)
+      if (validationError) {
+        return badRequest(validationError)
       }
-
-      if (body.page_size && (body.page_size < 10 || body.page_size > 100)) {
-        return badRequest('Page size must be between 10 and 100')
-      }
-
-      if (body.view_mode && !['list', 'card', 'minimal', 'title'].includes(body.view_mode)) {
-        return badRequest('Invalid view mode')
-      }
-
-      if (body.density && !['compact', 'normal', 'comfortable'].includes(body.density)) {
-        return badRequest('Invalid density value')
-      }
-
-      if (body.tag_layout && !['grid', 'masonry'].includes(body.tag_layout)) {
-        return badRequest('Invalid tag layout value')
-      }
-
-      if (body.sort_by && !['created', 'updated', 'pinned', 'popular'].includes(body.sort_by)) {
-        return badRequest('Invalid sort_by value')
-      }
-
-      if (body.search_auto_clear_seconds !== undefined && (body.search_auto_clear_seconds < 5 || body.search_auto_clear_seconds > 120)) {
-        return badRequest('Search auto clear seconds must be between 5 and 120')
-      }
-
-      if (body.tag_selection_auto_clear_seconds !== undefined && (body.tag_selection_auto_clear_seconds < 10 || body.tag_selection_auto_clear_seconds > 300)) {
-        return badRequest('Tag selection auto clear seconds must be between 10 and 300')
-      }
-
-      // 默认书签图标：前端当前只提供 orbital-spinner，但为了兼容旧数据，仍然允许历史值
-      if (
-        body.default_bookmark_icon &&
-        !['gradient-glow', 'pulse-breath', 'orbital-spinner', 'bookmark'].includes(
-          body.default_bookmark_icon,
-        )
-      ) {
-        return badRequest('Invalid default bookmark icon value')
-      }
-
-      if (body.snapshot_retention_count !== undefined && (body.snapshot_retention_count < -1 || body.snapshot_retention_count > 100)) {
-        return badRequest('Snapshot retention count must be between -1 and 100')
-      }
-
-      if (body.snapshot_auto_cleanup_days !== undefined && (body.snapshot_auto_cleanup_days < 0 || body.snapshot_auto_cleanup_days > 365)) {
-        return badRequest('Snapshot auto cleanup days must be between 0 and 365')
-      }
-
-      // 确保当前用户在 user_preferences 表中有一条记录；
-      // 如果不存在，则插入一条使用表定义默认值的记录，避免 UPDATE 影响 0 行。
-      await context.env.DB.prepare(
-        `INSERT INTO user_preferences (user_id)
-         VALUES (?)
-         ON CONFLICT(user_id) DO NOTHING`
-      )
-        .bind(userId)
-        .run()
 
       // 构建更新语句
       const updates: string[] = []
@@ -297,24 +153,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
           }
 
           return success({
-            preferences: {
-              theme: preferences.theme,
-              page_size: preferences.page_size,
-              view_mode: preferences.view_mode,
-              density: preferences.density,
-              tag_layout: preferences.tag_layout ?? 'grid',
-              sort_by: preferences.sort_by ?? 'popular',
-              search_auto_clear_seconds: preferences.search_auto_clear_seconds ?? 15,
-              tag_selection_auto_clear_seconds: preferences.tag_selection_auto_clear_seconds ?? 30,
-              enable_search_auto_clear: preferences.enable_search_auto_clear === 1,
-              enable_tag_selection_auto_clear: preferences.enable_tag_selection_auto_clear === 1,
-              default_bookmark_icon: preferences.default_bookmark_icon ?? 'bookmark',
-              snapshot_retention_count: preferences.snapshot_retention_count ?? 5,
-              snapshot_auto_create: preferences.snapshot_auto_create === 1,
-              snapshot_auto_dedupe: preferences.snapshot_auto_dedupe === 1,
-              snapshot_auto_cleanup_days: preferences.snapshot_auto_cleanup_days ?? 0,
-              updated_at: preferences.updated_at,
-            },
+            preferences: mapPreferences(preferences),
           })
         }
 
@@ -326,13 +165,20 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
       values.push(now)
       values.push(userId)
 
-      await context.env.DB.prepare(
+      // 使用 batch 确保原子性：确保记录存在并更新
+      const insertStmt = context.env.DB.prepare(
+        `INSERT INTO user_preferences (user_id)
+         VALUES (?)
+         ON CONFLICT(user_id) DO NOTHING`
+      ).bind(userId)
+
+      const updateStmt = context.env.DB.prepare(
         `UPDATE user_preferences
          SET ${updates.join(', ')}
          WHERE user_id = ?`
-      )
-        .bind(...values)
-        .run()
+      ).bind(...values)
+
+      await context.env.DB.batch([insertStmt, updateStmt])
 
       // 获取更新后的偏好
       const preferences = await context.env.DB.prepare(
@@ -346,55 +192,11 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
       }
 
       return success({
-        preferences: {
-          theme: preferences.theme,
-          page_size: preferences.page_size,
-          view_mode: preferences.view_mode,
-          density: preferences.density,
-          tag_layout: preferences.tag_layout ?? 'grid',
-          sort_by: preferences.sort_by ?? 'popular',
-          search_auto_clear_seconds: preferences.search_auto_clear_seconds ?? 15,
-          tag_selection_auto_clear_seconds: preferences.tag_selection_auto_clear_seconds ?? 30,
-          enable_search_auto_clear: preferences.enable_search_auto_clear === 1,
-          enable_tag_selection_auto_clear: preferences.enable_tag_selection_auto_clear === 1,
-          default_bookmark_icon: preferences.default_bookmark_icon ?? 'bookmark',
-          snapshot_retention_count: preferences.snapshot_retention_count ?? 5,
-          snapshot_auto_create: preferences.snapshot_auto_create === 1,
-          snapshot_auto_dedupe: preferences.snapshot_auto_dedupe === 1,
-          snapshot_auto_cleanup_days: preferences.snapshot_auto_cleanup_days ?? 0,
-          updated_at: preferences.updated_at,
-        },
+        preferences: mapPreferences(preferences),
       })
     } catch (error) {
       console.error('Update preferences error:', error)
-
-      // 在无法直接查看 Cloudflare Functions 日志的情况下，
-      // 临时把错误信息附加到响应中，方便前端 Network 面板中排查问题。
-      const baseMessage = 'Failed to update preferences'
-      let details = ''
-
-      if (error instanceof Error) {
-        details = error.message
-      } else if (typeof error === 'string') {
-        details = error
-      }
-
-      const message = details
-        ? `${baseMessage}: ${details}`
-        : baseMessage
-
-      return new Response(
-        JSON.stringify({
-          error: {
-            code: 'INTERNAL_ERROR',
-            message,
-          },
-        }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      )
+      return internalError('Failed to update preferences')
     }
   },
 ]

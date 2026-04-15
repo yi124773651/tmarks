@@ -6,7 +6,7 @@
 import type { PagesFunction } from '@cloudflare/workers-types'
 import type { Env, RouteParams } from '../lib/types'
 import { validateApiKey } from '../lib/api-key/validator'
-import { checkRateLimit, recordRequest } from '../lib/api-key/rate-limiter'
+import { consumeRateLimit } from '../lib/api-key/rate-limiter'
 import { hasPermission } from '../../shared/permissions'
 import { unauthorized, forbidden, tooManyRequests } from '../lib/response'
 import { verifyJWT } from '../lib/jwt'
@@ -55,15 +55,23 @@ export function requireDualAuth(
           })
         }
 
-        // 检查速率限制（KV 已移除，跳过限流）
-        // const kv = context.env.TMARKS_KV
-        // if (kv) {
-        //   const rateLimitResult = await checkRateLimit(keyData.id, kv)
-        //   if (!rateLimitResult.allowed) {
-        //     return tooManyRequests(...)
-        //   }
-        //   await recordRequest(keyData.id, kv)
-        // }
+        // 速率限制（D1）
+        const rateLimitResult = await consumeRateLimit(keyData.id, context.env.DB)
+        if (!rateLimitResult.allowed) {
+          const headers: Record<string, string> = {
+            'Retry-After': String(rateLimitResult.retryAfter || 0),
+            'X-RateLimit-Limit': String(rateLimitResult.limit),
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+            'X-RateLimit-Reset': String(Math.ceil(rateLimitResult.reset / 1000)),
+          }
+          return tooManyRequests(
+            {
+              code: 'RATE_LIMIT_EXCEEDED',
+              message: 'Too many requests. Please try again later.',
+            },
+            headers
+          )
+        }
 
         // 获取请求 IP
         const ip =

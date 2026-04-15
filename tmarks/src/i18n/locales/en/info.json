@@ -3,7 +3,7 @@
     "title": "TMarks Browser Extension",
     "subtitle": "Save tab groups with one click for efficient bookmark management",
     "download": {
-      "title": "Choose your browser to download",
+      "title": "Download Chrome / Chromium Version",
       "button": "Download"
     },
     "browsers": {
@@ -11,7 +11,7 @@
       "speedMode": "Speed Mode"
     },
     "version": "Version: {{version}} | Size: ~{{size}} | Updated: {{date}}",
-    "tip": "💡 8 browser-specific versions available, or use Chrome version (supports all Chrome-based browsers)",
+    "tip": "💡 Only the Chrome/Chromium universal package is provided (works on Chromium-based browsers like Chrome, Edge, Brave, Opera)",
     "features": {
       "title": "✨ Key Features",
       "saveTabGroups": {
@@ -31,7 +31,7 @@
       "title": "📦 Installation Steps",
       "step1": {
         "title": "Download Extension Package",
-        "description": "Click the download button above to get the tmarks-extension.zip file"
+        "description": "Click the download button above to get the tmarks-extension-chrome.zip file"
       },
       "step2": {
         "title": "Extract Files",
@@ -68,9 +68,9 @@
       "q2": "How to get an API Key?",
       "a2": "After logging into TMarks website, click 'API Keys' in the user menu at the top right, create a new API Key and copy it to the extension settings.",
       "q3": "Which browsers are supported?",
-      "a3": "Supports Chrome, Edge, Firefox, Brave, Opera and other major browsers. Chrome and Edge use the same version (based on same technology), Firefox uses a dedicated version.",
+      "a3": "Only the Chrome/Chromium version is provided: works on Chromium-based browsers like Chrome, Edge, Brave and Opera. Firefox is not supported for the extension at the moment.",
       "q4": "Can Chrome and Edge use the same version?",
-      "a4": "Yes! Chrome, Edge, Brave, Opera all use the Chrome version. Only Firefox needs the dedicated version.",
+      "a4": "Yes! All Chromium-based browsers use the same Chrome/Chromium version.",
       "q5": "Where to view saved tab groups?",
       "a5": "View and manage all saved tab groups on the 'Tab Groups' page of TMarks website."
     }

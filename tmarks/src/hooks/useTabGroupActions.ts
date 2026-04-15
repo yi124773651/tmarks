@@ -3,9 +3,12 @@ import { useTranslation } from 'react-i18next'
 import { tabGroupsService } from '@/services/tab-groups'
 import type { TabGroup, TabGroupItem } from '@/lib/types'
 import { useToastStore } from '@/stores/toastStore'
+import { useInvalidateTabGroups } from './useTabGroupsQuery'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN, enUS } from 'date-fns/locale'
 import { logger } from '@/lib/logger'
+import { useTabGroupItemActions } from './useTabGroupItemActions'
+import { buildTabOpenerHtml, getThemeColors } from './buildTabOpenerHtml'
 
 interface UseTabGroupActionsProps {
   setTabGroups: React.Dispatch<React.SetStateAction<TabGroup[]>>
@@ -32,10 +35,16 @@ export function useTabGroupActions({
 }: UseTabGroupActionsProps) {
   const { t, i18n } = useTranslation('tabGroups')
   const { success, error: showError } = useToastStore()
-  const [editingItemId, setEditingItemId] = useState<string | null>(null)
-  const [editingTitle, setEditingTitle] = useState('')
+  const invalidateTabGroups = useInvalidateTabGroups()
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
   const [editingGroupTitle, setEditingGroupTitle] = useState('')
+
+  // Include item actions
+  const itemActions = useTabGroupItemActions({
+    setTabGroups,
+    setConfirmDialog,
+    confirmDialog,
+  })
 
   const dateLocale = i18n.language === 'zh-CN' ? zhCN : enUS
 
@@ -61,6 +70,7 @@ export function useTabGroupActions({
         try {
           await tabGroupsService.deleteTabGroup(id)
           setTabGroups((prev) => prev.filter((g) => g.id !== id))
+          await invalidateTabGroups()
           success(t('message.movedToTrash'))
         } catch (err) {
           logger.error('Failed to delete tab group:', err)
@@ -93,15 +103,37 @@ export function useTabGroupActions({
       onConfirm: () => {
         setConfirmDialog({ ...confirmDialog, isOpen: false })
 
-        // 直接打开所有标签
-        items.forEach((item, index) => {
-          setTimeout(() => {
-            window.open(item.url, '_blank', 'noopener,noreferrer')
-          }, index * 20) // 20ms 间隔
-        })
+        // Use tab opener popup to avoid browser popup blocker
+        const colors = getThemeColors()
+        const i18nSuccessPartial = t('tabOpener.successPartial', { opened: '__OPENED__', failed: '__FAILED__' } as Record<string, unknown>)
+          .replace('__OPENED__', "' + opened + '")
+          .replace('__FAILED__', "' + failed + '")
+        const i18nSuccessAll = t('tabOpener.successAll', { count: '__COUNT__' } as Record<string, unknown>)
+          .replace('__COUNT__', "' + opened + '")
+        const html = buildTabOpenerHtml(
+          items.map(item => ({ url: item.url, title: item.title })),
+          colors,
+          {
+            title: t('tabOpener.title', { defaultValue: 'Opening Tabs' }),
+            heading: t('tabOpener.heading', { defaultValue: 'Opening Tabs...' }),
+            preparing: t('tabOpener.preparing', { defaultValue: 'Preparing...' }),
+            opening: t('tabOpener.opening', { defaultValue: 'Opening: ' }),
+            successPartial: i18nSuccessPartial,
+            successAll: i18nSuccessAll,
+            closeWindow: t('tabOpener.closeWindow', { defaultValue: 'Close Window' }),
+          }
+        )
+        const blob = new Blob([html], { type: 'text/html' })
+        const url = URL.createObjectURL(blob)
+        const newWindow = window.open(url, '_blank', 'width=800,height=600')
 
-        // 显示成功消息
-        success(t('message.openingTabs', { count: itemCount }))
+        if (newWindow) {
+          setTimeout(() => URL.revokeObjectURL(url), 5000)
+          success(t('message.openingTabs', { count: itemCount }))
+        } else {
+          URL.revokeObjectURL(url)
+          showError(t('message.cannotOpenWindow', { defaultValue: 'Popup was blocked. Please allow popups for this site.' }))
+        }
       },
     })
   }
@@ -154,6 +186,7 @@ export function useTabGroupActions({
       setTabGroups((prev) =>
         prev.map((g) => (g.id === groupId ? { ...g, title: editingGroupTitle } : g))
       )
+      await invalidateTabGroups()
       setEditingGroupId(null)
       setEditingGroupTitle('')
       success(t('message.renameSuccess'))
@@ -163,120 +196,8 @@ export function useTabGroupActions({
     }
   }
 
-  const handleEditItem = (item: TabGroupItem) => {
-    setEditingItemId(item.id)
-    setEditingTitle(item.title)
-  }
-
-  const handleSaveEdit = async (groupId: string, itemId: string) => {
-    if (!editingTitle.trim()) {
-      showError(t('message.titleRequired'))
-      return
-    }
-
-    try {
-      await tabGroupsService.updateTabGroupItem(itemId, { title: editingTitle })
-      setTabGroups((prev) =>
-        prev.map((group) =>
-          group.id === groupId
-            ? {
-              ...group,
-              items: group.items?.map((item) =>
-                item.id === itemId ? { ...item, title: editingTitle } : item
-              ),
-            }
-            : group
-        )
-      )
-      setEditingItemId(null)
-      setEditingTitle('')
-      success(t('message.editSuccess'))
-    } catch (err) {
-      logger.error('Failed to update item:', err)
-      showError(t('message.editFailed'))
-    }
-  }
-
-  const handleTogglePin = async (groupId: string, itemId: string, currentPinned: boolean) => {
-    const newPinned = !currentPinned
-    try {
-      await tabGroupsService.updateTabGroupItem(itemId, { is_pinned: newPinned })
-      setTabGroups((prev) =>
-        prev.map((group) =>
-          group.id === groupId
-            ? {
-              ...group,
-              items: group.items?.map((item) =>
-                item.id === itemId ? { ...item, is_pinned: newPinned } : item
-              ),
-            }
-            : group
-        )
-      )
-      success(newPinned ? t('message.pinSuccess') : t('message.unpinSuccess'))
-    } catch (err) {
-      logger.error('Failed to toggle pin:', err)
-      showError(t('message.operationFailed'))
-    }
-  }
-
-  const handleToggleTodo = async (groupId: string, itemId: string, currentTodo: boolean) => {
-    const newTodo = !currentTodo
-    try {
-      await tabGroupsService.updateTabGroupItem(itemId, { is_todo: newTodo })
-      setTabGroups((prev) =>
-        prev.map((group) =>
-          group.id === groupId
-            ? {
-              ...group,
-              items: group.items?.map((item) =>
-                item.id === itemId ? { ...item, is_todo: newTodo } : item
-              ),
-            }
-            : group
-        )
-      )
-      success(newTodo ? t('message.todoSuccess') : t('message.untodoSuccess'))
-    } catch (err) {
-      logger.error('Failed to toggle todo:', err)
-      showError(t('message.operationFailed'))
-    }
-  }
-
-  const handleDeleteItem = (groupId: string, itemId: string, title: string) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: t('confirm.deleteItem'),
-      message: t('confirm.deleteItemMessage', { title }),
-      onConfirm: async () => {
-        setConfirmDialog({ ...confirmDialog, isOpen: false })
-        try {
-          await tabGroupsService.deleteTabGroupItem(itemId)
-          setTabGroups((prev) =>
-            prev.map((group) =>
-              group.id === groupId
-                ? {
-                  ...group,
-                  items: group.items?.filter((item) => item.id !== itemId),
-                  item_count: (group.item_count || 0) - 1,
-                }
-                : group
-            )
-          )
-          success(t('message.deleteSuccess'))
-        } catch (err) {
-          logger.error('Failed to delete item:', err)
-          showError(t('message.deleteFailed'))
-        }
-      },
-    })
-  }
-
   return {
-    editingItemId,
-    setEditingItemId,
-    editingTitle,
-    setEditingTitle,
+    ...itemActions,
     editingGroupId,
     setEditingGroupId,
     editingGroupTitle,
@@ -287,11 +208,5 @@ export function useTabGroupActions({
     handleExportMarkdown,
     handleEditGroup,
     handleSaveGroupEdit,
-    handleEditItem,
-    handleSaveEdit,
-    handleTogglePin,
-    handleToggleTodo,
-    handleDeleteItem,
   }
 }
-

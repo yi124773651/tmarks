@@ -9,6 +9,7 @@
 import type { PagesFunction } from '@cloudflare/workers-types'
 import type { Env } from '../../lib/types'
 import { notFound, internalError } from '../../lib/response'
+import { generateImageSig } from '../../lib/image-sig'
 
 // OPTIONS /api/snapshot-images/:hash - CORS 预检
 export const onRequestOptions: PagesFunction<Env, 'hash'> = async () => {
@@ -71,6 +72,28 @@ export const onRequestGet: PagesFunction<Env, 'hash'> = async (context) => {
     if (!snapshot) {
       console.warn(`[Snapshot Image API] Snapshot not found or access denied: u=${userId}, b=${bookmarkId}, v=${version}, hash=${hash}`)
       return notFound('Snapshot not found or access denied')
+    }
+
+    // 强制验证图片签名
+    const sig = url.searchParams.get('sig')
+    if (!sig) {
+      return new Response('Missing image signature', {
+        status: 403,
+        headers: {
+          'Content-Type': 'text/plain',
+          'Access-Control-Allow-Origin': '*',
+        },
+      })
+    }
+    const expectedSig = await generateImageSig(hash, userId, bookmarkId, context.env.JWT_SECRET)
+    if (sig !== expectedSig) {
+      return new Response('Invalid image signature', {
+        status: 403,
+        headers: {
+          'Content-Type': 'text/plain',
+          'Access-Control-Allow-Origin': '*',
+        },
+      })
     }
 
     // 构建 R2 键

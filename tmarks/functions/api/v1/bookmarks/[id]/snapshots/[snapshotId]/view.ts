@@ -8,6 +8,7 @@ import type { PagesFunction } from '@cloudflare/workers-types'
 import type { Env } from '../../../../../../lib/types'
 import { unauthorized, notFound, internalError } from '../../../../../../lib/response'
 import { verifySignedUrl, extractSignedParams } from '../../../../../../lib/signed-url'
+import { generateImageSig } from '../../../../../../lib/image-sig'
 
 // GET /api/v1/bookmarks/:id/snapshots/:snapshotId/view - 使用签名 URL 查看快照
 export const onRequestGet: PagesFunction<Env> = async (context) => {
@@ -16,7 +17,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const snapshotId = context.params.snapshotId as string
     const db = context.env.DB
     const bucket = context.env.SNAPSHOTS_BUCKET
-
     if (!bucket) {
       return internalError('Storage not configured')
     }
@@ -70,33 +70,30 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const htmlSize = new Blob([htmlContent]).size
     console.log(`[Snapshot View API] Retrieved from R2: ${(htmlSize / 1024).toFixed(1)}KB`)
 
-    // 注入宽松的 CSP meta 标签到 HTML head 中（覆盖任何默认设置）
-    const cspMetaTag = '<meta http-equiv="Content-Security-Policy" content="default-src * \'unsafe-inline\' \'unsafe-eval\' data: blob:; img-src * data: blob:; font-src * data:; style-src * \'unsafe-inline\'; script-src * \'unsafe-inline\' \'unsafe-eval\'; frame-src *; connect-src *;">';
-    if (htmlContent.includes('<head>')) {
-      htmlContent = htmlContent.replace('<head>', `<head>${cspMetaTag}`);
-      console.log(`[Snapshot View API] Injected CSP meta tag`);
-    } else if (htmlContent.includes('<HEAD>')) {
-      htmlContent = htmlContent.replace('<HEAD>', `<HEAD>${cspMetaTag}`);
-      console.log(`[Snapshot View API] Injected CSP meta tag`);
-    }
-
     // 检查是否是 V2 格式（包含 /api/snapshot-images/ 路径）
     const isV2 = htmlContent.includes('/api/snapshot-images/')
     
     if (isV2) {
       const version = (snapshot as Record<string, unknown>).version as number || 1
       
-      // 处理图片 URL：规范化所有图片 URL，确保参数正确
+      // 收集所有图片 hash 并生成签名
+      const imgUrlRegex = /\/api\/snapshot-images\/([a-zA-Z0-9._-]+?)(?:\?[^"\s)]*)?(?=["\s)]|$)/g
+      const matches = Array.from(htmlContent.matchAll(imgUrlRegex))
+      const uniqueHashes = [...new Set(matches.map(m => m[1]).filter(h => h.length <= 128))]
+      
+      // 批量生成签名
+      const sigMap = new Map<string, string>()
+      for (const hash of uniqueHashes) {
+        sigMap.set(hash, await generateImageSig(hash, userId, bookmarkId, context.env.JWT_SECRET))
+      }
+      
       let replacedCount = 0
-      htmlContent = htmlContent.replace(
-        /\/api\/snapshot-images\/([a-zA-Z0-9._-]+?)(?:\?[^"\s)]*)?(?=["\s)]|$)/g,
-        (_match: string, hash: string) => {
-          replacedCount++
-          // 只替换路径部分，不包含域名（避免重复）
-          return `/api/snapshot-images/${hash}?u=${userId}&b=${bookmarkId}&v=${version}`;
-        }
-      )
-      console.log(`[Snapshot View API] V2 format detected, normalized ${replacedCount} image URLs`)
+      htmlContent = htmlContent.replace(imgUrlRegex, (_match: string, hash: string) => {
+        replacedCount++
+        const sig = sigMap.get(hash) || ''
+        return `/api/snapshot-images/${hash}?u=${userId}&b=${bookmarkId}&v=${version}&sig=${sig}`
+      })
+      console.log(`[Snapshot View API] V2 format: normalized ${replacedCount} image URLs with signatures`)
     }
 
     return new Response(htmlContent, {
@@ -104,12 +101,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'public, max-age=3600',
         'X-Content-Type-Options': 'nosniff',
-        // 放宽 CSP 以允许加载快照中的所有资源（用户自己保存的内容）
-        'Content-Security-Policy': "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; img-src * data: blob:; font-src * data:; style-src * 'unsafe-inline'; script-src * 'unsafe-inline' 'unsafe-eval'; frame-src *; connect-src *;",
-        // 添加 CORS 头，允许跨域加载资源
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        // 修改 CSP 为严格策略：禁止执行任何脚本，只允许静态资源
+        'Content-Security-Policy': "default-src 'none'; img-src * data: blob:; style-src 'unsafe-inline' *; font-src * data:; frame-src 'none'; script-src 'none'; connect-src 'none';",
+        // 添加 X-Frame-Options 防止被 iframe 嵌套利用
+        'X-Frame-Options': 'DENY',
       },
     })
   } catch (error) {

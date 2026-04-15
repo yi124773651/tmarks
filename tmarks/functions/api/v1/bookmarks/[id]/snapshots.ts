@@ -11,6 +11,7 @@ import { requireAuth, AuthContext } from '../../../../middleware/auth'
 import { generateSignedUrl } from '../../../../lib/signed-url'
 import { generateNanoId } from '../../../../lib/crypto'
 import { checkR2Quota } from '../../../../lib/storage-quota'
+import { cleanupOldSnapshots } from './snapshot-cleanup'
 
 // 使用 Web Crypto API 计算 SHA-256 哈希
 async function sha256(content: string): Promise<string> {
@@ -207,20 +208,22 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
       const snapshotId = generateNanoId()
       const now = new Date().toISOString()
 
-      // 开始事务
+      // 开始事务（版本号在 INSERT 中原子分配，避免并发竞态）
       const batch = [
-        // 插入新快照
+        // 插入新快照，原子化分配版本号
         db.prepare(
-          `INSERT INTO bookmark_snapshots 
-           (id, bookmark_id, user_id, version, is_latest, content_hash, 
-            r2_key, r2_bucket, file_size, mime_type, snapshot_url, 
+          `INSERT INTO bookmark_snapshots
+           (id, bookmark_id, user_id, version, is_latest, content_hash,
+            r2_key, r2_bucket, file_size, mime_type, snapshot_url,
             snapshot_title, snapshot_status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 1, ?, ?, 'tmarks-snapshots', ?, 'text/html', ?, ?, 'completed', ?, ?)`
+           VALUES (?, ?, ?,
+            (SELECT COALESCE(MAX(version), 0) + 1 FROM bookmark_snapshots WHERE bookmark_id = ?),
+            1, ?, ?, 'tmarks-snapshots', ?, 'text/html', ?, ?, 'completed', ?, ?)`
         ).bind(
           snapshotId,
           bookmarkId,
           userId,
-          version,
+          bookmarkId,
           contentHash,
           r2Key,
           htmlBytes.length,
@@ -286,63 +289,3 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
     }
   },
 ]
-
-// 清理旧快照
-async function cleanupOldSnapshots(
-  db: D1Database,
-  bucket: R2Bucket,
-  bookmarkId: string,
-  userId: string
-) {
-  try {
-    // 获取保留策略
-    const bookmarkSettings = await db
-      .prepare('SELECT snapshot_retention_count FROM bookmarks WHERE id = ?')
-      .bind(bookmarkId)
-      .first()
-
-    const userSettings = await db
-      .prepare('SELECT snapshot_retention_count FROM user_preferences WHERE user_id = ?')
-      .bind(userId)
-      .first()
-
-    const retentionCount =
-      (bookmarkSettings?.snapshot_retention_count as number | null) ??
-      (userSettings?.snapshot_retention_count as number | null) ??
-      5
-
-    // -1 表示无限制
-    if (retentionCount === -1) {
-      return
-    }
-
-    // 获取需要删除的快照
-    const toDelete = await db
-      .prepare(
-        `SELECT id, r2_key
-         FROM bookmark_snapshots
-         WHERE bookmark_id = ? AND user_id = ?
-         ORDER BY version DESC
-         LIMIT -1 OFFSET ?`
-      )
-      .bind(bookmarkId, userId, retentionCount)
-      .all()
-
-    if (!toDelete.results || toDelete.results.length === 0) {
-      return
-    }
-
-    // 删除 R2 文件
-    for (const snapshot of toDelete.results) {
-      await bucket.delete(snapshot.r2_key as string)
-    }
-
-    // 删除数据库记录
-    const ids = toDelete.results.map((s) => s.id).join("','")
-    await db
-      .prepare(`DELETE FROM bookmark_snapshots WHERE id IN ('${ids}')`)
-      .run()
-  } catch (error) {
-    console.error('Cleanup snapshots error:', error)
-  }
-}

@@ -5,7 +5,7 @@
 
 import { Context } from 'hono'
 import { validateApiKey, checkPermission, updateLastUsed } from '../lib/api-key/validator'
-// import { checkRateLimit, recordRequest } from '../lib/api-key/rate-limiter'
+import { consumeRateLimit } from '../lib/api-key/rate-limiter'
 import { logApiKeyUsage } from '../lib/api-key/logger'
 
 interface ApiKeyAuthOptions {
@@ -68,15 +68,26 @@ export function requireApiKey(options: ApiKeyAuthOptions) {
       )
     }
 
-    // 4. 检查速率限制（KV 已移除，跳过限流）
-    // const kv = c.env.TMARKS_KV
-    // if (kv) {
-    //   const rateLimitResult = await checkRateLimit(keyData.id, kv)
-    //   if (!rateLimitResult.allowed) {
-    //     return c.json({ error: 'Rate limit exceeded' }, 429)
-    //   }
-    //   await recordRequest(keyData.id, kv)
-    // }
+    // 4. 速率限制（D1）
+    const rateLimitResult = await consumeRateLimit(keyData.id, c.env.DB)
+    if (!rateLimitResult.allowed) {
+      return c.json(
+        {
+          error: {
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: 'Too many requests. Please try again later.',
+            retry_after: rateLimitResult.retryAfter || 0,
+          },
+        },
+        429,
+        {
+          'Retry-After': String(rateLimitResult.retryAfter || 0),
+          'X-RateLimit-Limit': String(rateLimitResult.limit),
+          'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+          'X-RateLimit-Reset': String(Math.ceil(rateLimitResult.reset / 1000)),
+        }
+      )
+    }
 
     // 5. 获取请求 IP
     const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || null

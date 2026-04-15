@@ -8,6 +8,7 @@ import { DialogHost } from '@/components/common/DialogHost'
 import { useToastStore } from '@/stores/toastStore'
 import { useThemeStore } from '@/stores/themeStore'
 import { queryClient } from '@/lib/query-client'
+import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 
 function App() {
   const { user, isAuthenticated, accessToken, refreshToken, clearAuth, refreshAccessToken } = useAuthStore()
@@ -25,7 +26,8 @@ function App() {
   useEffect(() => {
     if (isAuthenticated && !accessToken) {
       if (refreshToken) {
-        refreshAccessToken().catch(() => {
+        refreshAccessToken().catch((err) => {
+          console.error('Failed to refresh access token:', err)
           clearAuth()
         })
       } else {
@@ -49,23 +51,32 @@ function App() {
   }, [userId])
 
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout>
     const handler = () => {
-      queryClient.invalidateQueries({ queryKey: ['bookmarks'] }).catch(() => {})
-      queryClient.invalidateQueries({ queryKey: ['tags'] }).catch(() => {})
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['bookmarks'] }).catch((err) => console.error('Failed to invalidate bookmarks:', err))
+        queryClient.invalidateQueries({ queryKey: ['tags'] }).catch((err) => console.error('Failed to invalidate tags:', err))
+      }, 300)
     }
 
     window.addEventListener('tmarks:data-changed', handler)
-    return () => window.removeEventListener('tmarks:data-changed', handler)
+    return () => {
+      window.removeEventListener('tmarks:data-changed', handler)
+      clearTimeout(debounceTimer)
+    }
   }, [])
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AppRouter />
-        <ToastContainer toasts={toasts} onClose={removeToast} />
-        <DialogHost />
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AppRouter />
+          <ToastContainer toasts={toasts} onClose={removeToast} />
+          <DialogHost />
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
 

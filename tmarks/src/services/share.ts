@@ -7,18 +7,19 @@ import type {
   PublicSharePayload,
   PublicSharePaginatedPayload,
 } from '@/lib/types'
+import { assertData } from './index'
 
 const PUBLIC_SHARE_BASE = import.meta.env.VITE_PUBLIC_SHARE_URL || '/api/public'
 
 export const shareService = {
   async getSettings(): Promise<ShareSettings> {
     const response = await apiClient.get<ShareSettingsResponse>('/settings/share')
-    return response.data!.share
+    return assertData(response.data, 'GET /settings/share').share
   },
 
   async updateSettings(payload: UpdateShareSettingsRequest): Promise<ShareSettings> {
     const response = await apiClient.put<ShareSettingsResponse>('/settings/share', payload)
-    return response.data!.share
+    return assertData(response.data, 'PUT /settings/share').share
   },
 
   async getPublicShare(slug: string): Promise<PublicSharePayload> {

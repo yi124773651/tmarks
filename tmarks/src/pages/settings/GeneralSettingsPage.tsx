@@ -1,39 +1,53 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Save, RotateCcw, Settings, Zap, Chrome, Key, Database, LogOut, BarChart3, Camera, Share2 } from 'lucide-react'
+import { Settings, Zap, Camera, Key, Share2, Database, LogOut } from 'lucide-react'
 import { usePreferences, useUpdatePreferences } from '@/hooks/usePreferences'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import type { UserPreferences } from '@/lib/types'
 import { ApiError } from '@/lib/api-client'
-import { SettingsTabs } from '@/components/settings/SettingsTabs'
+import { SettingsNav, type SettingsNavGroup } from '@/components/settings/SettingsNav'
+import { SettingsSaveBar } from '@/components/settings/SettingsSaveBar'
 import { BasicSettingsTab } from '@/components/settings/tabs/BasicSettingsTab'
 import { AutomationSettingsTab } from '@/components/settings/tabs/AutomationSettingsTab'
-
-import { BrowserSettingsTab } from '@/components/settings/tabs/BrowserSettingsTab'
+import { SnapshotSettingsTab } from '@/components/settings/tabs/SnapshotSettingsTab'
 import { ApiSettingsTab } from '@/components/settings/tabs/ApiSettingsTab'
 import { ShareSettingsTab } from '@/components/settings/tabs/ShareSettingsTab'
 import { DataSettingsTab } from '@/components/settings/tabs/DataSettingsTab'
-import { BookmarkStatisticsPage } from '@/pages/bookmarks/BookmarkStatisticsPage'
-import { SnapshotSettingsTab } from '@/components/settings/tabs/SnapshotSettingsTab'
+
+const VALID_SECTIONS = ['basic', 'automation', 'snapshot', 'api', 'share', 'data'] as const
+type SectionId = typeof VALID_SECTIONS[number]
+
+function isValidSection(s: string | null): s is SectionId {
+  return s !== null && (VALID_SECTIONS as readonly string[]).includes(s)
+}
 
 export function GeneralSettingsPage() {
   const { t } = useTranslation('settings')
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { data: preferences, isLoading } = usePreferences()
   const updatePreferences = useUpdatePreferences()
   const { user, logout } = useAuthStore()
   const { addToast } = useToastStore()
 
-  const [activeTab, setActiveTab] = useState('basic')
+  const sectionFromUrl = searchParams.get('section')
+  const initialSection: SectionId = isValidSection(sectionFromUrl) ? sectionFromUrl : 'basic'
+  const [activeSection, setActiveSection] = useState<SectionId>(initialSection)
   const [localPreferences, setLocalPreferences] = useState<UserPreferences | null>(null)
 
   useEffect(() => {
-    if (preferences) {
-      setLocalPreferences(preferences)
-    }
+    if (preferences) setLocalPreferences(preferences)
   }, [preferences])
+
+  // 同步 URL query param
+  const handleSectionChange = (sectionId: string) => {
+    if (isValidSection(sectionId)) {
+      setActiveSection(sectionId)
+      setSearchParams(sectionId === 'basic' ? {} : { section: sectionId }, { replace: true })
+    }
+  }
 
   const handleUpdate = (updates: Partial<UserPreferences>) => {
     if (localPreferences) {
@@ -41,9 +55,19 @@ export function GeneralSettingsPage() {
     }
   }
 
+  // 判断 automation+snapshot 设置是否有修改
+  const isDirty = useMemo(() => {
+    if (!preferences || !localPreferences) return false
+    const keys: (keyof UserPreferences)[] = [
+      'enable_search_auto_clear', 'search_auto_clear_seconds',
+      'enable_tag_selection_auto_clear', 'tag_selection_auto_clear_seconds',
+      'snapshot_retention_count',
+    ]
+    return keys.some((k) => preferences[k] !== localPreferences[k])
+  }, [preferences, localPreferences])
+
   const handleSave = async () => {
     if (!localPreferences) return
-
     try {
       await updatePreferences.mutateAsync({
         theme: localPreferences.theme,
@@ -57,9 +81,6 @@ export function GeneralSettingsPage() {
         enable_search_auto_clear: localPreferences.enable_search_auto_clear,
         enable_tag_selection_auto_clear: localPreferences.enable_tag_selection_auto_clear,
         snapshot_retention_count: localPreferences.snapshot_retention_count,
-        snapshot_auto_create: localPreferences.snapshot_auto_create,
-        snapshot_auto_dedupe: localPreferences.snapshot_auto_dedupe,
-        snapshot_auto_cleanup_days: localPreferences.snapshot_auto_cleanup_days,
       })
       addToast('success', t('message.saveSuccess'))
     } catch (error) {
@@ -71,10 +92,9 @@ export function GeneralSettingsPage() {
     }
   }
 
-  const handleReset = () => {
+  const handleDiscard = () => {
     if (preferences) {
       setLocalPreferences(preferences)
-      addToast('info', t('message.resetSuccess'))
     }
   }
 
@@ -87,6 +107,35 @@ export function GeneralSettingsPage() {
     }
   }
 
+  const navGroups: SettingsNavGroup[] = useMemo(() => [
+    {
+      label: t('navGroup.account'),
+      items: [
+        { id: 'basic', label: t('tabs.basic'), icon: Settings },
+      ],
+    },
+    {
+      label: t('navGroup.features'),
+      items: [
+        { id: 'automation', label: t('tabs.automation'), icon: Zap },
+        { id: 'snapshot', label: t('tabs.snapshot'), icon: Camera },
+      ],
+    },
+    {
+      label: t('navGroup.integration'),
+      items: [
+        { id: 'api', label: t('tabs.api'), icon: Key },
+      ],
+    },
+    {
+      label: t('navGroup.dataAndShare'),
+      items: [
+        { id: 'share', label: t('tabs.share'), icon: Share2 },
+        { id: 'data', label: t('tabs.data'), icon: Database },
+      ],
+    },
+  ], [t])
+
   if (isLoading || !localPreferences) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -95,23 +144,11 @@ export function GeneralSettingsPage() {
     )
   }
 
-  const tabs = [
-    { id: 'basic', label: t('tabs.basic'), icon: <Settings className="w-4 h-4" /> },
-    { id: 'automation', label: t('tabs.automation'), icon: <Zap className="w-4 h-4" /> },
-
-    { id: 'snapshot', label: t('tabs.snapshot'), icon: <Camera className="w-4 h-4" /> },
-    { id: 'browser', label: t('tabs.browser'), icon: <Chrome className="w-4 h-4" /> },
-    { id: 'api', label: t('tabs.api'), icon: <Key className="w-4 h-4" /> },
-    { id: 'share', label: t('tabs.share'), icon: <Share2 className="w-4 h-4" /> },
-    { id: 'data', label: t('tabs.data'), icon: <Database className="w-4 h-4" /> },
-    { id: 'statistics', label: t('tabs.statistics'), icon: <BarChart3 className="w-4 h-4" /> },
-  ]
-
   return (
     <div className="w-[80%] mx-auto px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
-      {/* 页面标题卡片 */}
+      {/* 页面标题 */}
       <div className="card p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground">{t('title')}</h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
@@ -120,41 +157,23 @@ export function GeneralSettingsPage() {
               {t('description')}
             </p>
           </div>
-          <div className="flex gap-2 flex-shrink-0">
-            <button
-              onClick={handleLogout}
-              className="btn btn-ghost btn-sm sm:btn flex items-center gap-2 text-error hover:bg-error/10"
-              title={t('action.logout')}
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('action.logout')}</span>
-            </button>
-            <button
-              onClick={handleReset}
-              className="btn btn-ghost btn-sm sm:btn flex items-center gap-2 hover:bg-muted/30"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('action.reset')}</span>
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={updatePreferences.isPending}
-              className="btn btn-ghost btn-sm sm:btn flex items-center gap-2 hover:bg-muted/30"
-            >
-              <Save className="w-4 h-4" />
-              <span className="hidden sm:inline">{updatePreferences.isPending ? t('action.saving') : t('action.save')}</span>
-              <span className="sm:hidden">{t('action.save').split(' ')[0]}</span>
-            </button>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="btn btn-ghost btn-sm flex items-center gap-2 text-error hover:bg-error/10 flex-shrink-0"
+            title={t('action.logout')}
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('action.logout')}</span>
+          </button>
         </div>
       </div>
 
-      {/* 标签页容器卡片 */}
+      {/* 侧栏导航 + 内容 */}
       <div className="card p-3 sm:p-6">
-        <SettingsTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}>
-          {activeTab === 'basic' && <BasicSettingsTab />}
+        <SettingsNav groups={navGroups} activeSection={activeSection} onSectionChange={handleSectionChange}>
+          {activeSection === 'basic' && <BasicSettingsTab />}
 
-          {activeTab === 'automation' && (
+          {activeSection === 'automation' && (
             <AutomationSettingsTab
               searchEnabled={localPreferences.enable_search_auto_clear}
               searchSeconds={localPreferences.search_auto_clear_seconds}
@@ -167,35 +186,24 @@ export function GeneralSettingsPage() {
             />
           )}
 
-
-
-          {activeTab === 'snapshot' && (
+          {activeSection === 'snapshot' && (
             <SnapshotSettingsTab
               retentionCount={localPreferences.snapshot_retention_count}
-              autoCreate={localPreferences.snapshot_auto_create}
-              autoDedupe={localPreferences.snapshot_auto_dedupe}
-              autoCleanupDays={localPreferences.snapshot_auto_cleanup_days}
               onRetentionCountChange={(count) => handleUpdate({ snapshot_retention_count: count })}
-              onAutoCreateChange={(enabled) => handleUpdate({ snapshot_auto_create: enabled })}
-              onAutoDedupeChange={(enabled) => handleUpdate({ snapshot_auto_dedupe: enabled })}
-              onAutoCleanupDaysChange={(days) => handleUpdate({ snapshot_auto_cleanup_days: days })}
             />
           )}
 
-          {activeTab === 'browser' && <BrowserSettingsTab />}
+          {activeSection === 'api' && <ApiSettingsTab />}
+          {activeSection === 'share' && <ShareSettingsTab />}
+          {activeSection === 'data' && <DataSettingsTab />}
 
-          {activeTab === 'api' && <ApiSettingsTab />}
-
-          {activeTab === 'share' && <ShareSettingsTab />}
-
-          {activeTab === 'data' && <DataSettingsTab />}
-
-          {activeTab === 'statistics' && (
-            <div className="-m-3 sm:-m-6 p-3 sm:p-6">
-              <BookmarkStatisticsPage embedded />
-            </div>
-          )}
-        </SettingsTabs>
+          <SettingsSaveBar
+            isDirty={isDirty}
+            isSaving={updatePreferences.isPending}
+            onSave={handleSave}
+            onDiscard={handleDiscard}
+          />
+        </SettingsNav>
       </div>
     </div>
   )

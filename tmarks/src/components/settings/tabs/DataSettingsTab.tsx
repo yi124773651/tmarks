@@ -16,6 +16,25 @@ import { useR2StorageQuota } from '@/hooks/useStorage'
 import { SettingsSection, SettingsDivider } from '../SettingsSection'
 import type { ExportFormat, ExportOptions } from '@shared/import-export-types'
 
+/** Run async tasks with limited concurrency */
+async function runWithConcurrency<T>(
+  tasks: (() => Promise<T>)[],
+  concurrency: number,
+): Promise<T[]> {
+  const results: T[] = []
+  let index = 0
+
+  async function next(): Promise<void> {
+    while (index < tasks.length) {
+      const i = index++
+      results[i] = await tasks[i]!()
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, () => next()))
+  return results
+}
+
 export function DataSettingsTab() {
   const { t } = useTranslation('settings')
   const queryClient = useQueryClient()
@@ -48,8 +67,9 @@ export function DataSettingsTab() {
       const bookmarks = data.data?.bookmarks || []
       let totalCleaned = 0
 
-      for (const bookmark of bookmarks) {
-        if (bookmark.snapshot_count > 0) {
+      const tasks: (() => Promise<number>)[] = bookmarks
+        .filter((b: { snapshot_count: number }) => b.snapshot_count > 0)
+        .map((bookmark: { id: string }) => async (): Promise<number> => {
           try {
             const cleanupResponse = await fetch(`/api/v1/bookmarks/${bookmark.id}/snapshots/cleanup`, {
               method: 'POST',
@@ -61,13 +81,16 @@ export function DataSettingsTab() {
             })
             if (cleanupResponse.ok) {
               const result = await cleanupResponse.json()
-              totalCleaned += result.data?.deleted_count || 0
+              return result.data?.deleted_count || 0
             }
           } catch (error) {
             console.error(`Clean snapshot failed for bookmark ${bookmark.id}:`, error)
           }
-        }
-      }
+          return 0
+        })
+
+      const counts = await runWithConcurrency(tasks, 3)
+      totalCleaned = counts.reduce((sum, c) => sum + c, 0)
 
       if (totalCleaned > 0) {
         addToast('success', t('data.cleanSnapshotsSuccess', { count: totalCleaned }))

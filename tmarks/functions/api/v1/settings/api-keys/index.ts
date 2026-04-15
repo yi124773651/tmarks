@@ -22,6 +22,8 @@ interface CreateApiKeyRequest {
 // 获取用户的 API Key 配额限制
 async function getUserApiKeyLimit(_db: D1Database, _userId: string): Promise<number> {
   // 取消限制，所有用户都可以创建无限个 API Key
+  void _db
+  void _userId
   return 999
 }
 

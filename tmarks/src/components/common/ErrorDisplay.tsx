@@ -277,53 +277,7 @@ function ErrorItem({ error, variant, showDetails, onCopy, isCopied }: ErrorItemP
   )
 }
 
-/**
- * 简单的错误提示组件
- */
-interface SimpleErrorProps {
-  message: string
-  variant?: 'error' | 'warning' | 'info' | 'success'
-  onDismiss?: () => void
-  className?: string
-}
-
-export function SimpleError({ 
-  message, 
-  variant = 'error', 
-  onDismiss,
-  className = '' 
-}: SimpleErrorProps) {
-  return (
-    <ErrorDisplay
-      errors={[{ message }]}
-      variant={variant}
-      dismissible={!!onDismiss}
-      onDismiss={onDismiss}
-      collapsible={false}
-      className={className}
-    />
-  )
-}
-
-/**
- * 内联错误组件
- */
-interface InlineErrorProps {
-  message: string
-  className?: string
-}
-
-export function InlineError({ message, className = '' }: InlineErrorProps) {
-  return (
-    <div className={`flex items-center space-x-1 text-sm text-destructive ${className}`}>
-      <AlertCircle className="h-4 w-4 flex-shrink-0" />
-      <span>{message}</span>
-    </div>
-  )
-}
-
-// 工具函数：获取默认标题 - 需要传入 t 函数
-export function getDefaultTitle(variant: string, count: number, t: (key: string, options?: Record<string, unknown>) => string): string {
+function getDefaultTitle(variant: string, count: number, t: (key: string, options?: Record<string, unknown>) => string): string {
   const titles = {
     error: count === 1 ? t('error.occurred') : t('error.occurredCount', { count }),
     warning: count === 1 ? t('error.warning') : t('error.warningCount', { count }),

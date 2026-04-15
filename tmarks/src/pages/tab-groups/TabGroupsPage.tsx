@@ -1,979 +1,170 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useEffect } from 'react'
+import { KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { useTranslation } from 'react-i18next'
-import { tabGroupsService } from '@/services/tab-groups'
-import { logger } from '@/lib/logger'
-import type { TabGroup, TabGroupItem } from '@/lib/types'
-import { ShareDialog } from '@/components/tab-groups/ShareDialog'
-import type { SortOption } from '@/components/tab-groups/sortUtils'
-import { sortTabGroups } from '@/components/tab-groups/sortUtils'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
-import { SearchBar } from '@/components/tab-groups/SearchBar'
+import { BottomNav } from '@/components/common/BottomNav'
+import { Drawer } from '@/components/common/Drawer'
+import { MobileHeader } from '@/components/common/MobileHeader'
+import { ResizablePanel } from '@/components/common/ResizablePanel'
 import { BatchActionBar } from '@/components/tab-groups/BatchActionBar'
-import { EmptyState } from '@/components/tab-groups/EmptyState'
-import { TabGroupHeader } from '@/components/tab-groups/TabGroupHeader'
-import { TabItemList } from '@/components/tab-groups/TabItemList'
+import { MoveItemDialog } from '@/components/tab-groups/MoveItemDialog'
+import { SearchBar } from '@/components/tab-groups/SearchBar'
+import { ShareDialog } from '@/components/tab-groups/ShareDialog'
 import { TabGroupTree } from '@/components/tab-groups/TabGroupTree'
 import { TodoSidebar } from '@/components/tab-groups/TodoSidebar'
-import { PinnedItemsSection } from '@/components/tab-groups/PinnedItemsSection'
-import { ResizablePanel } from '@/components/common/ResizablePanel'
-import { arrayMove } from '@dnd-kit/sortable'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragOverlay,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core'
-import { useTabGroupActions } from '@/hooks/useTabGroupActions'
 import { useBatchActions } from '@/hooks/useBatchActions'
-import { searchInFields } from '@/lib/search-utils'
-import { MoveItemDialog } from '@/components/tab-groups/MoveItemDialog'
 import { usePreferences } from '@/hooks/usePreferences'
-import { useIsMobile, useIsDesktop } from '@/hooks/useMediaQuery'
-import { Drawer } from '@/components/common/Drawer'
-import { BottomNav } from '@/components/common/BottomNav'
-import { MobileHeader } from '@/components/common/MobileHeader'
+import { useToastStore } from '@/stores/toastStore'
+import { useIsDesktop, useIsMobile } from '@/hooks/useMediaQuery'
+import { useTabGroupActions } from '@/hooks/useTabGroupActions'
+import { useTabGroupsData } from './hooks/useTabGroupsData'
+import { useTabGroupItemDnD } from './hooks/useTabGroupItemDnD'
+import { useTabGroupsState } from './hooks/useTabGroupsState'
+import { TabGroupsGrid } from './components/TabGroupsGrid'
+import { useGroupManagement } from './hooks/useGroupManagement'
 
 export function TabGroupsPage() {
   const { t } = useTranslation('tabGroups')
   const { t: tc } = useTranslation('common')
-  const [tabGroups, setTabGroups] = useState<TabGroup[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
-  const [highlightedDomain, setHighlightedDomain] = useState<string | null>(null)
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
-  const [batchMode, setBatchMode] = useState(false)
-  const [sortBy, setSortBy] = useState<SortOption>('created')
-  const [sharingGroupId, setSharingGroupId] = useState<string | null>(null)
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
-  const searchCleanupTimerRef = useRef<NodeJS.Timeout | null>(null)
-
-  // 移动端状态
+  const state = useTabGroupsState()
+  const { error: showError } = useToastStore()
   const isMobile = useIsMobile()
   const isDesktop = useIsDesktop()
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
-  // 拖拽状态
-  const [activeId, setActiveId] = useState<string | null>(null)
-
-  // Move item dialog state
-  const [moveItemDialog, setMoveItemDialog] = useState<{
-    isOpen: boolean
-    item: TabGroupItem | null
-    currentGroupId: string
-  }>({
-    isOpen: false,
-    item: null,
-    currentGroupId: '',
+  const actions = useTabGroupActions({
+    setTabGroups: state.setTabGroups,
+    setDeletingId: state.setDeletingId,
+    setConfirmDialog: state.setConfirmDialog,
+    confirmDialog: state.confirmDialog,
   })
 
-  // Confirm dialog state
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean
-    title: string
-    message: string
-    onConfirm: () => void
-  }>({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
+  const batch = useBatchActions({
+    tabGroups: state.tabGroups,
+    setTabGroups: state.setTabGroups,
+    selectedItems: state.selectedItems,
+    setSelectedItems: state.setSelectedItems,
+    setConfirmDialog: state.setConfirmDialog,
+    confirmDialog: state.confirmDialog,
   })
 
-  // Use custom hooks
-  const {
-    editingItemId,
-    setEditingItemId,
-    editingTitle,
-    setEditingTitle,
-    editingGroupId,
-    setEditingGroupId,
-    editingGroupTitle,
-    setEditingGroupTitle,
-    handleDelete,
-    handleOpenAll,
-    handleExportMarkdown,
-    handleEditGroup,
-    handleSaveGroupEdit,
-    handleEditItem,
-    handleSaveEdit,
-    handleTogglePin,
-    handleToggleTodo,
-    handleDeleteItem,
-  } = useTabGroupActions({
-    setTabGroups,
-    setDeletingId,
-    setConfirmDialog,
-    confirmDialog,
+  const data = useTabGroupsData({
+    tabGroups: state.tabGroups,
+    setTabGroups: state.setTabGroups,
+    selectedGroupId: state.selectedGroupId,
+    searchQuery: state.searchQuery,
+    sortBy: state.sortBy,
   })
 
-  const {
-    handleBatchDelete,
-    handleBatchPin,
-    handleBatchTodo,
-    handleBatchExport,
-    handleDeselectAll,
-  } = useBatchActions({
-    tabGroups,
-    setTabGroups,
-    selectedItems,
-    setSelectedItems,
-    setConfirmDialog,
-    confirmDialog,
+  const dnd = useTabGroupItemDnD({
+    tabGroups: state.tabGroups,
+    setTabGroups: state.setTabGroups,
+    moveItemDialog: state.moveItemDialog,
+    setMoveItemDialog: state.setMoveItemDialog,
+    refreshTreeOnly: data.refreshTreeOnly,
+    showError,
+    moveFailedMessage: t('page.moveFailed'),
   })
 
-  // 拖拽传感器
+  const groupMgmt = useGroupManagement({
+    tabGroups: state.tabGroups,
+    refreshTreeOnly: data.refreshTreeOnly,
+    showError,
+    batchMode: state.batchMode,
+    selectedItems: state.selectedItems,
+    setSelectedItems: state.setSelectedItems,
+    setHighlightedDomain: state.setHighlightedDomain,
+  })
+
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // 移动 8px 后才开始拖拽
-      },
-    }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor)
   )
 
-  useEffect(() => {
-    loadTabGroups()
-  }, [])
-
-  // 搜索防抖：延迟300ms更新实际搜索关键词
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery)
-    }, 300)
-
-    return () => clearTimeout(timer)
-  }, [searchQuery])
-
-  // 获取用户偏好设置
   const { data: preferences } = usePreferences()
-
-  // 搜索自动清空 - 根据用户设置
+  const { searchQuery, searchCleanupTimerRef, setSearchQuery } = state
   useEffect(() => {
-    // 清除之前的定时器
     if (searchCleanupTimerRef.current) {
       clearTimeout(searchCleanupTimerRef.current)
       searchCleanupTimerRef.current = null
     }
 
-    // 检查是否启用搜索自动清空
     const enableAutoClear = preferences?.enable_search_auto_clear ?? true
-    const clearSeconds = preferences?.search_auto_clear_seconds ?? 15
-
-    // 如果启用了自动清空且有搜索关键词，设置定时器
     if (enableAutoClear && searchQuery.trim()) {
       searchCleanupTimerRef.current = setTimeout(() => {
         setSearchQuery('')
-        setDebouncedSearchQuery('')
-      }, clearSeconds * 1000)
+      }, (preferences?.search_auto_clear_seconds ?? 15) * 1000)
     }
 
-    // 清理函数
     return () => {
       if (searchCleanupTimerRef.current) {
         clearTimeout(searchCleanupTimerRef.current)
         searchCleanupTimerRef.current = null
       }
     }
-  }, [searchQuery, preferences?.enable_search_auto_clear, preferences?.search_auto_clear_seconds])
+  }, [searchQuery, searchCleanupTimerRef, setSearchQuery, preferences?.enable_search_auto_clear, preferences?.search_auto_clear_seconds])
 
-  const loadTabGroups = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const groups = await tabGroupsService.getAllTabGroups()
-      // 调试日志：查看返回的数据
-      logger.log('[TabGroupsPage] Loaded groups:', groups.length)
-      groups.forEach((g, i) => {
-        logger.log(`[TabGroupsPage] Group ${i}: ${g.title}, items: ${g.items?.length || 0}`)
-      })
-      setTabGroups(groups)
-    } catch (err) {
-      logger.error('Failed to load tab groups:', err)
-      setError(t('page.loadFailed'))
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  if (data.isLoading) return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+      <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      <p className="text-sm text-muted-foreground">{t('page.loading')}</p>
+    </div>
+  )
 
-  // 只刷新左侧树形列表，不影响中间和右侧列
-  const refreshTreeOnly = async () => {
-    try {
-      const groups = await tabGroupsService.getAllTabGroups()
-      // 保持当前选中的分组不变
-      const currentSelectedGroup = selectedGroupId
-        ? groups.find(g => g.id === selectedGroupId)
-        : null
-
-      setTabGroups(groups)
-
-      // 如果当前选中的分组仍然存在，保持选中状态
-      // 这样中间列的内容不会改变
-      if (currentSelectedGroup) {
-        // 不需要重新设置 selectedGroupId，因为它没有改变
-        // 中间列会继续显示相同的内容
-      }
-    } catch (err) {
-      logger.error('Failed to refresh tree:', err)
-      setError(t('page.refreshFailed'))
-    }
-  }
-
-  const handleCreateFolder = async () => {
-    try {
-      await tabGroupsService.createFolder(t('folder.newFolder'))
-      // 只刷新左侧树形列表
-      await refreshTreeOnly()
-    } catch (err) {
-      logger.error('Failed to create folder:', err)
-      setError(t('page.createFolderFailed'))
-    }
-  }
-
-  const handleRenameGroup = async (groupId: string, newTitle: string) => {
-    try {
-      await tabGroupsService.updateTabGroup(groupId, { title: newTitle })
-      // 只刷新左侧树形列表
-      await refreshTreeOnly()
-    } catch (err) {
-      logger.error('Failed to rename group:', err)
-      setError(t('page.renameFailed'))
-    }
-  }
-
-  const handleMoveGroup = async (groupId: string, newParentId: string | null, newPosition: number) => {
-    try {
-      logger.log('📦 handleMoveGroup:', { groupId, newParentId, newPosition })
-
-      // 获取拖拽项
-      const draggedGroup = tabGroups.find(g => g.id === groupId)
-      if (!draggedGroup) {
-        logger.error('Dragged group not found')
-        return
-      }
-
-      // 获取同级所有项（包括拖拽项）
-      const siblings = tabGroups.filter(g =>
-        (g.parent_id || null) === newParentId
-      )
-
-      // 按当前 position 排序
-      siblings.sort((a, b) => (a.position || 0) - (b.position || 0))
-
-      // 移除拖拽项（如果在同级中）
-      const draggedIndex = siblings.findIndex(g => g.id === groupId)
-      if (draggedIndex !== -1) {
-        siblings.splice(draggedIndex, 1)
-      }
-
-      // 插入到新位置
-      siblings.splice(newPosition, 0, draggedGroup)
-
-      // 重新分配 position（从 0 开始）
-      const updates = siblings.map((g, index) => ({
-        id: g.id,
-        position: index,
-        parent_id: newParentId
-      }))
-
-      logger.log('  → Reordering', updates.length, 'items')
-
-      // 批量更新
-      await Promise.all(
-        updates.map(update =>
-          tabGroupsService.updateTabGroup(update.id, {
-            position: update.position,
-            parent_id: update.parent_id
-          })
-        )
-      )
-
-      // 只刷新左侧树形列表，不影响中间和右侧列
-      await refreshTreeOnly()
-    } catch (err) {
-      logger.error('Failed to move group:', err)
-      setError(t('page.moveFailed'))
-    }
-  }
-
-  const handleItemClick = (item: TabGroupItem, e: React.MouseEvent | React.ChangeEvent<HTMLInputElement>) => {
-    if (batchMode) {
-      e.preventDefault()
-      const newSelected = new Set(selectedItems)
-      if (newSelected.has(item.id)) {
-        newSelected.delete(item.id)
-      } else {
-        newSelected.add(item.id)
-      }
-      setSelectedItems(newSelected)
-      return
-    }
-
-    const domain = extractDomain(item.url)
-    if (highlightedDomain === domain) {
-      setHighlightedDomain(null)
-    } else {
-      setHighlightedDomain(domain)
-    }
-  }
-
-  const extractDomain = (url: string): string => {
-    try {
-      const urlObj = new URL(url)
-      return urlObj.hostname
-    } catch {
-      return ''
-    }
-  }
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string)
-  }
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-    setActiveId(null)
-
-    if (!over || active.id === over.id) return
-
-    // 查找拖拽的项目和目标项目
-    let sourceGroup: TabGroup | undefined
-    let sourceItem: TabGroupItem | undefined
-    let targetGroup: TabGroup | undefined
-    let targetItem: TabGroupItem | undefined
-
-    // 找到源项目和源组
-    for (const group of tabGroups) {
-      const item = group.items?.find((i) => i.id === active.id)
-      if (item) {
-        sourceGroup = group
-        sourceItem = item
-        break
-      }
-    }
-
-    // 找到目标项目和目标组
-    for (const group of tabGroups) {
-      const item = group.items?.find((i) => i.id === over.id)
-      if (item) {
-        targetGroup = group
-        targetItem = item
-        break
-      }
-    }
-
-    if (!sourceGroup || !sourceItem || !targetGroup || !targetItem) return
-
-    // 同一个组内移动
-    if (sourceGroup.id === targetGroup.id) {
-      if (!sourceGroup.items) {
-        logger.error('Source group items is undefined')
-        return
-      }
-
-      const oldIndex = sourceGroup.items.findIndex((item) => item.id === active.id)
-      const newIndex = sourceGroup.items.findIndex((item) => item.id === over.id)
-
-      const newItems = arrayMove(sourceGroup.items, oldIndex, newIndex)
-
-      // Update local state immediately
-      setTabGroups((prev) =>
-        prev.map((g) =>
-          g.id === sourceGroup.id ? { ...g, items: newItems } : g
-        )
-      )
-
-      // Update positions in backend
-      try {
-        await Promise.all(
-          newItems.map((item: TabGroupItem, index: number) =>
-            tabGroupsService.updateTabGroupItem(item.id, { position: index })
-          )
-        )
-      } catch (err) {
-        logger.error('Failed to update positions:', err)
-        // Revert on error
-        setTabGroups((prev) =>
-          prev.map((g) =>
-            g.id === sourceGroup.id ? { ...g, items: sourceGroup.items } : g
-          )
-        )
-      }
-    } else {
-      // 跨组移动
-      if (!sourceGroup.items || !targetGroup.items) {
-        logger.error('Source or target group items is undefined')
-        return
-      }
-
-      const targetIndex = targetGroup.items.findIndex((item) => item.id === over.id)
-
-      // 从源组移除
-      const newSourceItems = sourceGroup.items.filter((item) => item.id !== active.id)
-
-      // 添加到目标组
-      const newTargetItems = [...targetGroup.items]
-      newTargetItems.splice(targetIndex, 0, sourceItem)
-
-      // Update local state immediately
-      setTabGroups((prev) =>
-        prev.map((g) => {
-          if (g.id === sourceGroup.id) {
-            return { ...g, items: newSourceItems, item_count: newSourceItems.length }
-          }
-          if (g.id === targetGroup.id) {
-            return { ...g, items: newTargetItems, item_count: newTargetItems.length }
-          }
-          return g
-        })
-      )
-
-      // Update backend
-      try {
-        // 使用专门的移动 API
-        await tabGroupsService.moveTabGroupItem(sourceItem.id, targetGroup.id, targetIndex)
-
-        // 更新源组剩余项目的 position
-        await Promise.all(
-          newSourceItems.map((item: TabGroupItem, index: number) =>
-            tabGroupsService.updateTabGroupItem(item.id, { position: index })
-          )
-        )
-
-        logger.log('✅ Item moved across groups successfully')
-      } catch (err) {
-        logger.error('Failed to move item across groups:', err)
-        // Revert on error
-        setTabGroups((prev) =>
-          prev.map((g) => {
-            if (g.id === sourceGroup.id) {
-              return { ...g, items: sourceGroup.items, item_count: sourceGroup.items?.length ?? 0 }
-            }
-            if (g.id === targetGroup.id) {
-              return { ...g, items: targetGroup.items, item_count: targetGroup.items?.length ?? 0 }
-            }
-            return g
-          })
-        )
-      }
-    }
-  }
-
-  // 打开移动对话框
-  const handleMoveItem = (item: TabGroupItem) => {
-    // 找到当前项目所属的组
-    const currentGroup = tabGroups.find((g) => g.items?.some((i) => i.id === item.id))
-    if (currentGroup) {
-      setMoveItemDialog({
-        isOpen: true,
-        item,
-        currentGroupId: currentGroup.id,
-      })
-    }
-  }
-
-  // 执行移动操作
-  const handleMoveItemToGroup = async (targetGroupId: string) => {
-    const { item, currentGroupId } = moveItemDialog
-    if (!item) return
-
-    const sourceGroup = tabGroups.find((g) => g.id === currentGroupId)
-    const targetGroup = tabGroups.find((g) => g.id === targetGroupId)
-
-    if (!sourceGroup || !targetGroup) return
-
-    // 从源组移除
-    if (!sourceGroup.items) {
-      logger.error('Source group items is undefined')
-      return
-    }
-
-    const newSourceItems = sourceGroup.items.filter((i) => i.id !== item.id)
-
-    // 添加到目标组末尾
-    const newTargetItems = [...(targetGroup.items || []), item]
-
-    // Update local state immediately
-    setTabGroups((prev) =>
-      prev.map((g) => {
-        if (g.id === currentGroupId) {
-          return { ...g, items: newSourceItems, item_count: newSourceItems.length }
-        }
-        if (g.id === targetGroupId) {
-          return { ...g, items: newTargetItems, item_count: newTargetItems.length }
-        }
-        return g
-      })
-    )
-
-    // Update backend
-    try {
-      // 使用专门的移动 API，移动到目标组末尾
-      await tabGroupsService.moveTabGroupItem(item.id, targetGroupId, newTargetItems.length - 1)
-
-      // 更新源组剩余项目的 position
-      await Promise.all(
-        newSourceItems.map((i: TabGroupItem, index: number) =>
-          tabGroupsService.updateTabGroupItem(i.id, { position: index })
-        )
-      )
-
-      logger.log('✅ Item moved to group successfully')
-    } catch (err) {
-      logger.error('Failed to move item to group:', err)
-      // Revert on error
-      setTabGroups((prev) =>
-        prev.map((g) => {
-          if (g.id === currentGroupId) {
-            return { ...g, items: sourceGroup.items, item_count: sourceGroup.items?.length ?? 0 }
-          }
-          if (g.id === targetGroupId) {
-            return { ...g, items: targetGroup.items, item_count: targetGroup.items?.length || 0 }
-          }
-          return g
-        })
-      )
-    }
-  }
-
-  // 使用 useMemo 缓存筛选结果，避免每次渲染都重新计算
-  // 注意：必须在所有提前返回之前调用 hooks
-  const groupFilteredTabGroups = useMemo(() => {
-    if (!tabGroups || tabGroups.length === 0) {
-      return []
-    }
-    
-    if (!selectedGroupId) {
-      return tabGroups
-    }
-    
-    const selectedGroup = tabGroups.find(g => g.id === selectedGroupId)
-    if (!selectedGroup) {
-      return []
-    }
-    
-    // 如果选中的是文件夹，只显示所有子项（不显示文件夹本身）
-    if (selectedGroup.is_folder === 1) {
-      const children = tabGroups.filter(g => g.parent_id === selectedGroupId)
-      return children
-    }
-    
-    // 如果选中的是普通分组，只显示该分组
-    return [selectedGroup]
-  }, [selectedGroupId, tabGroups])
-
-  // 使用防抖后的搜索关键词进行筛选（高性能版）
-  const filteredTabGroups = useMemo(() => {
-    if (!groupFilteredTabGroups || groupFilteredTabGroups.length === 0) {
-      return []
-    }
-    
-    if (!debouncedSearchQuery.trim()) {
-      return groupFilteredTabGroups
-    }
-
-    const query = debouncedSearchQuery
-    const results: TabGroup[] = []
-    
-    for (const group of groupFilteredTabGroups) {
-      // 使用优化的搜索函数
-      const matchesTitle = searchInFields([group.title], query)
-      
-      if (matchesTitle) {
-        // 标题匹配，保留所有 items
-        results.push(group)
-      } else if (group.items && group.items.length > 0) {
-        // 标题不匹配，筛选 items（批量搜索标题和URL）
-        const filteredItems = group.items.filter((item) =>
-          searchInFields([item.title, item.url], query)
-        )
-        
-        if (filteredItems.length > 0) {
-          // 只在有匹配的 items 时才创建新对象
-          results.push({
-            ...group,
-            items: filteredItems,
-          })
-        }
-      }
-    }
-    
-    return results
-  }, [groupFilteredTabGroups, debouncedSearchQuery])
-
-  // 使用 useMemo 缓存排序结果
-  const sortedGroups = useMemo(() => {
-    if (!filteredTabGroups || filteredTabGroups.length === 0) {
-      return []
-    }
-    return sortTabGroups(filteredTabGroups, sortBy)
-  }, [filteredTabGroups, sortBy])
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>
-            {t('page.loading')}
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <p className="text-destructive mb-4">{error}</p>
-          <button
-            onClick={loadTabGroups}
-            className="px-4 py-2 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-            style={{ color: 'var(--foreground)' }}
-          >
-            {tc('button.retry')}
-          </button>
-        </div>
-      </div>
-    )
-  }
+  if (data.error) return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
+      <p className="text-destructive mb-4">{data.error}</p>
+      <button onClick={() => void data.refetchTabGroups()} className="px-4 py-2 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+        {tc('button.retry')}
+      </button>
+    </div>
+  )
 
   return (
     <div className="w-full h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] flex flex-col overflow-hidden touch-none">
       <div className={`flex ${isMobile ? 'flex-col' : ''} w-full h-full overflow-hidden touch-none`}>
-      {/* 移动端顶部工具栏 */}
-      {isMobile && (
-        <MobileHeader
-          title={t('title')}
-          onMenuClick={() => setIsDrawerOpen(true)}
-          showSearch={false}
-          showMore={false}
-        />
-      )}
+        {isMobile && <MobileHeader title={t('title')} onMenuClick={() => state.setIsDrawerOpen(true)} showSearch={false} showMore={false} />}
+        {isDesktop ? (
+          <ResizablePanel side="left" defaultWidth={240} minWidth={200} maxWidth={400} storageKey="tab-groups-left-sidebar-width">
+            <TabGroupTree tabGroups={state.tabGroups} selectedGroupId={state.selectedGroupId} onSelectGroup={state.setSelectedGroupId} onCreateFolder={groupMgmt.handleCreateFolder} onRenameGroup={groupMgmt.handleRenameGroup} onMoveGroup={groupMgmt.handleMoveGroup} onRefresh={data.refreshTreeOnly} />
+          </ResizablePanel>
+        ) : (
+          <Drawer isOpen={state.isDrawerOpen} onClose={() => state.setIsDrawerOpen(false)} title={t('title')} side="left">
+            <TabGroupTree tabGroups={state.tabGroups} selectedGroupId={state.selectedGroupId} onSelectGroup={(groupId) => { state.setSelectedGroupId(groupId); state.setIsDrawerOpen(false) }} onCreateFolder={groupMgmt.handleCreateFolder} onRenameGroup={groupMgmt.handleRenameGroup} onMoveGroup={groupMgmt.handleMoveGroup} onRefresh={data.refreshTreeOnly} />
+          </Drawer>
+        )}
 
-      {/* 左侧导航栏 - 桌面端显示，移动端改为抽屉 */}
-      {isDesktop ? (
-        <ResizablePanel
-          side="left"
-          defaultWidth={240}
-          minWidth={200}
-          maxWidth={400}
-          storageKey="tab-groups-left-sidebar-width"
-        >
-          <TabGroupTree
-            tabGroups={tabGroups}
-            selectedGroupId={selectedGroupId}
-            onSelectGroup={setSelectedGroupId}
-            onCreateFolder={handleCreateFolder}
-            onRenameGroup={handleRenameGroup}
-            onMoveGroup={handleMoveGroup}
-            onRefresh={refreshTreeOnly}
-          />
-        </ResizablePanel>
-      ) : (
-        <Drawer
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          title={t('title')}
-          side="left"
-        >
-          <TabGroupTree
-            tabGroups={tabGroups}
-            selectedGroupId={selectedGroupId}
-            onSelectGroup={(id) => {
-              setSelectedGroupId(id)
-              setIsDrawerOpen(false) // 选择后关闭抽屉
-            }}
-            onCreateFolder={handleCreateFolder}
-            onRenameGroup={handleRenameGroup}
-            onMoveGroup={handleMoveGroup}
-            onRefresh={refreshTreeOnly}
-          />
-        </Drawer>
-      )}
-
-      {/* 中间内容区域 */}
-      <div className={`flex-1 overflow-y-auto bg-muted/30 ${isMobile ? 'min-h-0' : ''}`}>
-        <div className={`w-full px-4 ${isMobile ? 'py-4 pb-20' : 'py-6'}`}>
-          {/* Header */}
-          <div className="mb-6">
-            {/* Title and Search Bar in one row */}
-            {tabGroups.length > 0 && (
-              <div className="flex items-center gap-4 w-full">
-                {/* 桌面端显示标题 */}
-                {!isMobile && (
-                  <h1 className="text-xl font-semibold text-foreground whitespace-nowrap flex-shrink-0">
-                    {t('title')}
-                  </h1>
-                )}
-                <SearchBar
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  sortBy={sortBy}
-                  onSortChange={setSortBy}
-                  onBatchModeToggle={() => setBatchMode(!batchMode)}
-                  batchMode={batchMode}
-                />
-              </div>
-            )}
-
-            {/* Batch Action Bar */}
-            {batchMode && selectedItems.size > 0 && (
-              <div className="mt-4">
-                <BatchActionBar
-                  selectedCount={selectedItems.size}
-                  onSelectAll={() => {
-                    // Select all items from all groups
-                    const allItemIds = new Set<string>()
-                    tabGroups.forEach((group) => {
-                      group.items?.forEach((item) => {
-                        allItemIds.add(item.id)
-                      })
-                    })
-                    setSelectedItems(allItemIds)
-                  }}
-                  onDeselectAll={handleDeselectAll}
-                  onBatchDelete={handleBatchDelete}
-                  onBatchPin={handleBatchPin}
-                  onBatchTodo={handleBatchTodo}
-                  onBatchExport={handleBatchExport}
-                  onCancel={() => {
-                    setBatchMode(false)
-                    setSelectedItems(new Set())
-                  }}
-                />
-              </div>
-            )}
-          </div>
-
-      {/* Empty State */}
-      {tabGroups.length === 0 && <EmptyState isSearching={false} searchQuery="" />}
-
-      {/* No Search Results */}
-      {tabGroups.length > 0 && filteredTabGroups.length === 0 && (
-        <EmptyState isSearching={true} searchQuery={searchQuery} />
-      )}
-
-      {/* 固定标签页区域 */}
-      {sortedGroups.length > 0 && !searchQuery && (
-        <PinnedItemsSection 
-          tabGroups={sortedGroups}
-          onUnpin={(groupId, itemId) => handleTogglePin(groupId, itemId, true)}
-        />
-      )}
-
-      {/* Tab Groups Grid */}
-      {sortedGroups.length > 0 && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="grid grid-cols-1 gap-6">
-            {(() => {
-              // 按照 parent_id 分组
-              const groupsByParent = new Map<string | null, TabGroup[]>()
-              sortedGroups.forEach(group => {
-                const parentId = group.parent_id || null
-                if (!groupsByParent.has(parentId)) {
-                  groupsByParent.set(parentId, [])
-                }
-                groupsByParent.get(parentId)!.push(group)
-              })
-
-              // 渲染函数
-              const renderGroup = (group: TabGroup) => (
-                <div
-                  key={group.id}
-                  className="card border-l-[3px] border-l-primary p-6 hover:shadow-xl transition-all duration-200"
-                >
-                  <TabGroupHeader
-                    group={group}
-                    isEditingTitle={editingGroupId === group.id}
-                    editingTitle={editingGroupTitle}
-                    onEditTitle={() => handleEditGroup(group)}
-                    onSaveTitle={() => handleSaveGroupEdit(group.id)}
-                    onCancelEdit={() => {
-                      setEditingGroupId(null)
-                      setEditingGroupTitle('')
-                    }}
-                    onTitleChange={setEditingGroupTitle}
-                    onOpenAll={() => handleOpenAll(group.items || [])}
-                    onExport={() => handleExportMarkdown(group)}
-                    onDelete={() => handleDelete(group.id, group.title)}
-                    isDeleting={deletingId === group.id}
-                    onShareClick={() => setSharingGroupId(group.id)}
-                  />
-
-                  {group.items && group.items.length > 0 && (
-                    <TabItemList
-                      items={group.items}
-                      groupId={group.id}
-                      highlightedDomain={highlightedDomain}
-                      selectedItems={selectedItems}
-                      batchMode={batchMode}
-                      editingItemId={editingItemId}
-                      editingTitle={editingTitle}
-                      onItemClick={handleItemClick}
-                      onEditItem={handleEditItem}
-                      onSaveEdit={handleSaveEdit}
-                      onTogglePin={handleTogglePin}
-                      onToggleTodo={handleToggleTodo}
-                      onDeleteItem={handleDeleteItem}
-                      onMoveItem={handleMoveItem}
-                      setEditingItemId={setEditingItemId}
-                      setEditingTitle={setEditingTitle}
-                      extractDomain={extractDomain}
-                    />
-                  )}
+        <div className={`flex-1 overflow-y-auto bg-muted/30 ${isMobile ? 'min-h-0' : ''}`}>
+          <div className={`w-full px-4 ${isMobile ? 'py-4 pb-20' : 'py-6'}`}>
+            <div className="mb-6">
+              {state.tabGroups.length > 0 && (
+                <div className="flex items-center gap-4 w-full">
+                  {!isMobile && <h1 className="text-xl font-semibold text-foreground whitespace-nowrap flex-shrink-0">{t('title')}</h1>}
+                  <SearchBar searchQuery={state.searchQuery} onSearchChange={state.setSearchQuery} sortBy={state.sortBy} onSortChange={state.setSortBy} onBatchModeToggle={() => state.setBatchMode(!state.batchMode)} batchMode={state.batchMode} />
                 </div>
-              )
+              )}
+              {state.batchMode && state.selectedItems.size > 0 && (
+                <div className="mt-4">
+                  <BatchActionBar selectedCount={state.selectedItems.size} onSelectAll={() => {
+                    const allItemIds = new Set<string>()
+                    state.tabGroups.forEach((group) => group.items?.forEach((item) => allItemIds.add(item.id)))
+                    state.setSelectedItems(allItemIds)
+                  }} onDeselectAll={batch.handleDeselectAll} onBatchDelete={batch.handleBatchDelete} onBatchPin={batch.handleBatchPin} onBatchTodo={batch.handleBatchTodo} onBatchExport={batch.handleBatchExport} onCancel={() => { state.setBatchMode(false); state.setSelectedItems(new Set()) }} />
+                </div>
+              )}
+            </div>
 
-              // 渲染分组
-              const result: JSX.Element[] = []
-              
-              // 如果选中了特定分组，直接显示该分组（排除文件夹）
-              if (selectedGroupId) {
-                sortedGroups.forEach(group => {
-                  // 只渲染普通分组，不渲染文件夹
-                  if (group.is_folder !== 1) {
-                    result.push(renderGroup(group))
-                  }
-                })
-              } else {
-                // 显示全部时，按文件夹分组显示
-                // 先显示根级别的文件夹和分组
-                const rootGroups = groupsByParent.get(null) || []
-                
-                rootGroups.forEach(group => {
-                  if (group.is_folder === 1) {
-                    // 获取文件夹下的子项
-                    const children = groupsByParent.get(group.id) || []
-                    // 只有当文件夹有子项时才显示
-                    if (children.length > 0) {
-                      // 文件夹标题
-                      result.push(
-                        <div key={`folder-${group.id}`} className="mt-6 first:mt-0">
-                          <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                            <span>📁</span>
-                            <span>{group.title}</span>
-                            <span className="text-sm text-muted-foreground">
-                              ({t('header.tabCount', { count: children.reduce((sum, g) => sum + (g.item_count || 0), 0) })})
-                            </span>
-                          </h2>
-                          <div className="space-y-6">
-                            {/* 文件夹下的子项 */}
-                            {children.map(childGroup => renderGroup(childGroup))}
-                          </div>
-                        </div>
-                      )
-                    }
-                  } else {
-                    // 根级别的普通分组
-                    result.push(renderGroup(group))
-                  }
-                })
-              }
+            <TabGroupsGrid tabGroups={state.tabGroups} filteredTabGroups={data.filteredTabGroups} sortedGroups={data.sortedGroups} selectedGroupId={state.selectedGroupId} searchQuery={state.searchQuery} activeId={dnd.activeId} sensors={sensors} highlightedDomain={state.highlightedDomain} selectedItems={state.selectedItems} batchMode={state.batchMode} deletingId={state.deletingId} editingGroupId={actions.editingGroupId} editingGroupTitle={actions.editingGroupTitle} editingItemId={actions.editingItemId} editingTitle={actions.editingTitle} onDragStart={dnd.handleDragStart} onDragEnd={dnd.handleDragEnd} onEditGroup={actions.handleEditGroup} onSaveGroupEdit={actions.handleSaveGroupEdit} onSetEditingGroupId={actions.setEditingGroupId} onSetEditingGroupTitle={actions.setEditingGroupTitle} onOpenAll={actions.handleOpenAll} onExportMarkdown={actions.handleExportMarkdown} onDelete={actions.handleDelete} onShareClick={state.setSharingGroupId} onItemClick={groupMgmt.handleItemClick} onEditItem={actions.handleEditItem} onSaveEdit={actions.handleSaveEdit} onTogglePin={actions.handleTogglePin} onToggleTodo={actions.handleToggleTodo} onDeleteItem={actions.handleDeleteItem} onMoveItem={dnd.handleMoveItem} onSetEditingItemId={actions.setEditingItemId} onSetEditingTitle={actions.setEditingTitle} extractDomain={groupMgmt.extractDomain} />
 
-              return result
-            })()}
+            {state.sharingGroupId && <ShareDialog groupId={state.sharingGroupId} groupTitle={state.tabGroups.find((group) => group.id === state.sharingGroupId)?.title || ''} onClose={() => state.setSharingGroupId(null)} />}
+            <MoveItemDialog isOpen={state.moveItemDialog.isOpen} itemTitle={state.moveItemDialog.item?.title || ''} currentGroupId={state.moveItemDialog.currentGroupId} availableGroups={state.tabGroups} onMove={dnd.handleMoveItemToGroup} onClose={() => state.setMoveItemDialog({ isOpen: false, item: null, currentGroupId: '' })} />
+            <ConfirmDialog isOpen={state.confirmDialog.isOpen} title={state.confirmDialog.title} message={state.confirmDialog.message} onConfirm={state.confirmDialog.onConfirm} onCancel={() => state.setConfirmDialog({ ...state.confirmDialog, isOpen: false })} />
           </div>
-
-          {/* DragOverlay - 拖拽时显示的浮动元素 */}
-          <DragOverlay>
-            {activeId ? (
-              <div
-                className="bg-card border-2 border-primary rounded shadow-xl cursor-grabbing p-3 opacity-95"
-                style={{
-                  transform: 'scale(1.05)',
-                }}
-              >
-                {(() => {
-                  // 查找被拖拽的项目
-                  for (const group of tabGroups) {
-                    const item = group.items?.find((i) => i.id === activeId)
-                    if (item) {
-                      return (
-                        <div className="flex items-center gap-3">
-                          <div className="w-4 h-4 rounded bg-primary/20 flex-shrink-0" />
-                          <span className="text-sm font-medium text-foreground truncate max-w-[300px]">
-                            {item.title}
-                          </span>
-                        </div>
-                      )
-                    }
-                  }
-                  return null
-                })()}
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      )}
-
-      {/* Share Dialog */}
-      {sharingGroupId && (
-        <ShareDialog
-          groupId={sharingGroupId}
-          groupTitle={tabGroups.find((g) => g.id === sharingGroupId)?.title || ''}
-          onClose={() => setSharingGroupId(null)}
-        />
-      )}
-
-      {/* Move Item Dialog */}
-      <MoveItemDialog
-        isOpen={moveItemDialog.isOpen}
-        itemTitle={moveItemDialog.item?.title || ''}
-        currentGroupId={moveItemDialog.currentGroupId}
-        availableGroups={tabGroups}
-        onMove={handleMoveItemToGroup}
-        onClose={() =>
-          setMoveItemDialog({
-            isOpen: false,
-            item: null,
-            currentGroupId: '',
-          })
-        }
-      />
-
-      {/* Confirm Dialog */}
-      <ConfirmDialog
-        isOpen={confirmDialog.isOpen}
-        title={confirmDialog.title}
-        message={confirmDialog.message}
-        onConfirm={confirmDialog.onConfirm}
-        onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
-      />
         </div>
-      </div>
 
-      {/* 右侧TODO栏 - 仅桌面端显示 */}
-      {isDesktop && (
-        <ResizablePanel
-          side="right"
-          defaultWidth={320}
-          minWidth={280}
-          maxWidth={500}
-          storageKey="tab-groups-right-sidebar-width"
-        >
-          <TodoSidebar
-            tabGroups={tabGroups}
-            onUpdate={loadTabGroups}
-          />
-        </ResizablePanel>
-      )}
-
-      {/* 移动端底部导航 */}
-      {isMobile && <BottomNav />}
+        {isDesktop && <ResizablePanel side="right" defaultWidth={320} minWidth={280} maxWidth={500} storageKey="tab-groups-right-sidebar-width">
+          <TodoSidebar tabGroups={state.tabGroups} />
+        </ResizablePanel>}
+        {isMobile && <BottomNav />}
       </div>
     </div>
   )

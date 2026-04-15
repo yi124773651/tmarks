@@ -9,22 +9,33 @@ export interface ExportBookmark {
   id: string
   title: string
   url: string
-  description?: string
-  cover_image?: string
+  description?: string | null
+  cover_image?: string | null
+  cover_image_id?: string | null
+  favicon?: string | null
   tags: string[]
   is_pinned: boolean
+  is_archived?: boolean
+  is_public?: boolean
   created_at: string
   updated_at: string
   click_count?: number
-  last_clicked_at?: string
+  last_clicked_at?: string | null
+  has_snapshot?: boolean
+  latest_snapshot_at?: string | null
+  snapshot_count?: number
+  deleted_at?: string | null
 }
 
 export interface ExportTag {
   id: string
   name: string
   color: string
+  click_count?: number
+  last_clicked_at?: string | null
   created_at: string
   updated_at: string
+  deleted_at?: string | null
   bookmark_count?: number
 }
 
@@ -54,7 +65,9 @@ export interface ExportTabGroup {
   is_folder: boolean
   position: number
   color?: string
-  tags?: string
+  tags?: string[]
+  is_deleted?: boolean
+  deleted_at?: string
   created_at: string
   updated_at: string
   items: ExportTabGroupItem[]
@@ -62,7 +75,7 @@ export interface ExportTabGroup {
 
 // ============ 导出格式 ============
 
-export type ExportFormat = 'json' | 'html'
+export type ExportFormat = 'json'
 
 export interface TMarksExportData {
   version: string
@@ -292,7 +305,7 @@ export type TagNormalizer = (tagName: string) => string
 // ============ 常量 ============
 
 export const SUPPORTED_IMPORT_FORMATS: ImportFormat[] = ['html', 'json', 'tmarks']
-export const SUPPORTED_EXPORT_FORMATS: ExportFormat[] = ['json', 'html']
+export const SUPPORTED_EXPORT_FORMATS: ExportFormat[] = ['json']
 
 export const DEFAULT_IMPORT_OPTIONS: ImportOptions = {
   skip_duplicates: true,

@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client'
 import type { PreferencesResponse, UpdatePreferencesRequest, UserPreferences } from '@/lib/types'
+import { assertData } from './index'
 
 export const preferencesService = {
   /**
@@ -7,7 +8,7 @@ export const preferencesService = {
    */
   async getPreferences(): Promise<UserPreferences> {
     const response = await apiClient.get<PreferencesResponse>('/preferences')
-    return response.data!.preferences
+    return assertData(response.data, 'GET /preferences').preferences
   },
 
   /**
@@ -15,6 +16,6 @@ export const preferencesService = {
    */
   async updatePreferences(data: UpdatePreferencesRequest): Promise<UserPreferences> {
     const response = await apiClient.patch<PreferencesResponse>('/preferences', data)
-    return response.data!.preferences
+    return assertData(response.data, 'PATCH /preferences').preferences
   },
 }

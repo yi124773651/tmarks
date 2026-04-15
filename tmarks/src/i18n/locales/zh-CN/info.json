@@ -3,7 +3,7 @@
     "title": "TMarks 浏览器插件",
     "subtitle": "一键保存标签页组，让书签管理更高效",
     "download": {
-      "title": "选择你的浏览器下载",
+      "title": "下载 Chrome / Chromium 版本",
       "button": "下载"
     },
     "browsers": {
@@ -11,7 +11,7 @@
       "speedMode": "极速模式"
     },
     "version": "版本：{{version}} | 大小：约 {{size}} | 更新时间：{{date}}",
-    "tip": "💡 提供 8 个浏览器专用版本，也可以使用 Chrome 通用版（支持所有基于 Chrome 的浏览器）",
+    "tip": "💡 目前仅提供 Chrome/Chromium 通用版本（适用于 Chrome、Edge、Brave、Opera 等 Chromium 内核浏览器）",
     "features": {
       "title": "✨ 主要功能",
       "saveTabGroups": {
@@ -31,7 +31,7 @@
       "title": "📦 安装步骤",
       "step1": {
         "title": "下载插件压缩包",
-        "description": "点击上方下载按钮，获取 tmarks-extension.zip 文件"
+        "description": "点击上方下载按钮，获取 tmarks-extension-chrome.zip 文件"
       },
       "step2": {
         "title": "解压文件",
@@ -68,9 +68,9 @@
       "q2": "如何获取 API Key？",
       "a2": "登录 TMarks 网站后，点击右上角用户菜单中的「API Keys」，创建一个新的 API Key 并复制到插件配置中。",
       "q3": "插件支持哪些浏览器？",
-      "a3": "支持 Chrome、Edge、Firefox、Brave、Opera 等主流浏览器。Chrome 和 Edge 使用同一个版本（基于相同技术），Firefox 使用专用版本。",
+      "a3": "目前仅提供 Chrome/Chromium 版本：支持 Chrome、Edge、Brave、Opera 等 Chromium 内核浏览器。Firefox 暂不支持插件版本。",
       "q4": "Chrome 和 Edge 可以用同一个版本吗？",
-      "a4": "是的！Chrome、Edge、Brave、Opera 等浏览器都使用 Chrome 版本。只有 Firefox 需要下载专用版本。",
+      "a4": "是的！所有 Chromium 内核浏览器都使用同一个 Chrome/Chromium 版本。",
       "q5": "保存的标签页组在哪里查看？",
       "a5": "在 TMarks 网站的「标签页」页面可以查看和管理所有保存的标签页组。"
     }

@@ -23,8 +23,7 @@ export const onRequest: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const now = new Date().toISOString()
 
       if (body.revoke_all) {
-        // 撤销该用户的所有刷新令牌
-        await context.env.DB.prepare(
+        // 撤销该用户的所有刷新令�?        await context.env.DB.prepare(
           `UPDATE auth_tokens
            SET revoked_at = ?
            WHERE user_id = ? AND revoked_at IS NULL`

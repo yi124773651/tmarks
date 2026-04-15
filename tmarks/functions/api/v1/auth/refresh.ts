@@ -43,7 +43,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return unauthorized('Refresh token has been revoked')
     }
 
-    // 检查是否过期
+    // 检查是否过�?
     const expiresAt = new Date(tokenRecord.expires_at)
     if (expiresAt < new Date()) {
       return unauthorized('Refresh token has expired')

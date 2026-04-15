@@ -1,4 +1,4 @@
-import type { Bookmark, BookmarkRow, SQLParam, D1Database } from '../../../../lib/types'
+import type { Bookmark, BookmarkRow, SQLParam, D1Database } from '../../../lib/types'
 
 export interface BookmarkWithTags extends Bookmark {
   tags: Array<{ id: string; name: string; color: string | null }>
@@ -77,8 +77,7 @@ export function buildBookmarkListQuery(
     params.push(pinned ? 1 : 0)
   }
 
-  // 关键词搜索
-  if (keyword) {
+  // 关键词搜�?  if (keyword) {
     query += ` AND (b.title LIKE ? OR b.description LIKE ? OR b.url LIKE ?)`
     const searchPattern = `%${keyword}%`
     params.push(searchPattern, searchPattern, searchPattern)
@@ -148,8 +147,7 @@ export function buildBookmarkListQuery(
     params.push(pageCursor)
   }
 
-  // 排序（置顶书签按 pin_order 排序）
-  let orderBy = ''
+  // 排序（置顶书签按 pin_order 排序�?  let orderBy = ''
   switch (sortBy) {
     case 'updated':
       orderBy = 'ORDER BY b.is_pinned DESC, CASE WHEN b.is_pinned = 1 THEN b.pin_order ELSE NULL END ASC, b.updated_at DESC, b.id DESC'

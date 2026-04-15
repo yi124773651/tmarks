@@ -27,7 +27,7 @@ export const onRequestGet: PagesFunction<Env, string, AuthContext>[] = [
     const startDateStr = startDate.toISOString().split('T')[0]
 
     try {
-      // 🚀 并行执行所有查询 - 性能优化
+      // 🚀 并行执行所有查�?- 性能优化
       const [
         groupsResult,
         deletedGroupsResult,
@@ -45,14 +45,14 @@ export const onRequestGet: PagesFunction<Env, string, AuthContext>[] = [
           .bind(userId)
           .all<{ count: number }>(),
 
-        // 2. 已删除标签页组计数
+        // 2. 已删除标签页组计�?
         context.env.DB.prepare(
           'SELECT COUNT(*) as count FROM tab_groups WHERE user_id = ? AND is_deleted = 1'
         )
           .bind(userId)
           .all<{ count: number }>(),
 
-        // 3. 标签页项目计数
+        // 3. 标签页项目计�?
         context.env.DB.prepare(
           'SELECT COUNT(*) as count FROM tab_group_items WHERE group_id IN (SELECT id FROM tab_groups WHERE user_id = ?)'
         )
@@ -77,7 +77,7 @@ export const onRequestGet: PagesFunction<Env, string, AuthContext>[] = [
           .bind(userId, startDateStr)
           .all<{ date: string; count: number }>(),
 
-        // 6. 标签页项目创建趋势
+        // 6. 标签页项目创建趋�?
         context.env.DB.prepare(
           `SELECT DATE(created_at) as date, COUNT(*) as count 
            FROM tab_group_items 

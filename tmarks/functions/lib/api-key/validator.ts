@@ -1,6 +1,5 @@
 /**
- * API Key Validator - 验证和权限检查
- */
+ * API Key Validator - 验证和权限检�? */
 
 import { hashApiKey } from './generator'
 import { hasPermission } from '../../../shared/permissions'
@@ -41,8 +40,7 @@ export async function validateApiKey(
     // 2. 计算哈希
     const keyHash = await hashApiKey(apiKey)
 
-    // 3. 查询数据库
-    const keyData = await db
+    // 3. 查询数据�?    const keyData = await db
       .prepare(
         `SELECT id, user_id, permissions, status, expires_at, last_used_at, last_used_ip
          FROM api_keys
@@ -55,8 +53,7 @@ export async function validateApiKey(
       return { valid: false, error: 'API Key not found' }
     }
 
-    // 4. 检查状态
-    if (keyData.status === 'revoked') {
+    // 4. 检查状�?    if (keyData.status === 'revoked') {
       return { valid: false, error: 'API Key has been revoked' }
     }
 
@@ -64,12 +61,10 @@ export async function validateApiKey(
       return { valid: false, error: 'API Key has expired' }
     }
 
-    // 5. 检查过期时间
-    if (keyData.expires_at) {
+    // 5. 检查过期时�?    if (keyData.expires_at) {
       const expiresAt = new Date(keyData.expires_at)
       if (expiresAt < new Date()) {
-        // 标记为过期
-        await markAsExpired(keyData.id, db)
+        // 标记为过�?        await markAsExpired(keyData.id, db)
         return { valid: false, error: 'API Key has expired' }
       }
     }
@@ -89,11 +84,9 @@ export async function validateApiKey(
 }
 
 /**
- * 检查 API Key 是否有特定权限
- * @param permissions API Key 权限列表
+ * 检�?API Key 是否有特定权�? * @param permissions API Key 权限列表
  * @param requiredPermission 需要的权限
- * @returns 是否有权限
- */
+ * @returns 是否有权�? */
 export function checkPermission(permissions: string[], requiredPermission: string): boolean {
   return hasPermission(permissions, requiredPermission)
 }
@@ -115,8 +108,7 @@ async function markAsExpired(keyId: string, db: D1Database): Promise<void> {
 }
 
 /**
- * 更新 API Key 最后使用信息
- * @param keyId API Key ID
+ * 更新 API Key 最后使用信�? * @param keyId API Key ID
  * @param ip 请求 IP
  * @param db D1 Database
  */

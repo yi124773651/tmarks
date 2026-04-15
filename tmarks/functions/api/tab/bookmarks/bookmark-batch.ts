@@ -1,7 +1,7 @@
-import type { D1Database } from '../../../../lib/types'
-import { isValidUrl, sanitizeString } from '../../../../lib/validation'
-import { generateUUID } from '../../../../lib/crypto'
-import { createOrLinkTags } from '../../../../lib/tags'
+import type { D1Database } from '../../../lib/types'
+import { isValidUrl, sanitizeString } from '../../../lib/validation'
+import { generateUUID } from '../../../lib/crypto'
+import { createOrLinkTags } from '../../../lib/tags'
 
 export type BatchCreateResult = {
   success: number
@@ -73,8 +73,7 @@ export async function handleBatchCreate(
       const isArchived = item.is_archived ? 1 : 0
       const isPublic = item.is_public ? 1 : 0
 
-      // 检查 URL 是否已存在
-      const existing = await db.prepare(
+      // 检�?URL 是否已存�?      const existing = await db.prepare(
         'SELECT id, deleted_at FROM bookmarks WHERE user_id = ? AND url = ?'
       )
         .bind(userId, url)
@@ -131,8 +130,7 @@ export async function handleBatchCreate(
     }
   }
 
-  // 清理空错误数组
-  if (result.errors && result.errors.length === 0) {
+  // 清理空错误数�?  if (result.errors && result.errors.length === 0) {
     delete result.errors
   }
 

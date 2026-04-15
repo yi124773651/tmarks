@@ -1,7 +1,7 @@
 /**
- * 分享标签页组 API
- * 路径: /api/tab/tab-groups/:id/share
- * 认证: API Key (X-API-Key header) 或 JWT Token (Bearer)
+ *  API
+ * : /api/tab/tab-groups/:id/share
+ * : API Key (X-API-Key header)  JWT Token (Bearer)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -32,7 +32,7 @@ interface CreateShareRequest {
   expires_in_days?: number
 }
 
-// POST /api/tab/tab-groups/:id/share - 创建分享链接
+// POST /api/tab/tab-groups/:id/share - 
 export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] = [
   requireDualAuth('tab_groups.update'),
   async (context) => {
@@ -109,7 +109,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
   },
 ]
 
-// GET /api/tab/tab-groups/:id/share - 获取分享信息
+// GET /api/tab/tab-groups/:id/share - 
 export const onRequestGet: PagesFunction<Env, RouteParams, DualAuthContext>[] = [
   requireDualAuth('tab_groups.read'),
   async (context) => {
@@ -139,7 +139,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, DualAuthContext>[] = 
   },
 ]
 
-// DELETE /api/tab/tab-groups/:id/share - 删除分享
+// DELETE /api/tab/tab-groups/:id/share - 
 export const onRequestDelete: PagesFunction<Env, RouteParams, DualAuthContext>[] = [
   requireDualAuth('tab_groups.delete'),
   async (context) => {

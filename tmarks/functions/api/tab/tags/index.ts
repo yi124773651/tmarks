@@ -1,7 +1,7 @@
 /**
- * 对外 API - 标签管理
- * 路径: /api/tab/tags
- * 认证: API Key (X-API-Key header)
+ *  API - 
+ * : /api/tab/tags
+ * : API Key (X-API-Key header)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -25,7 +25,7 @@ interface TagWithCount {
   updated_at: string
 }
 
-// GET /api/tags - 获取标签列表
+// GET /api/tags - 
 export const onRequestGet: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('tags.read'),
   async (context) => {
@@ -58,7 +58,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] 
   },
 ]
 
-// POST /api/tags - 创建标签
+// POST /api/tags - 
 export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('tags.create'),
   async (context) => {
@@ -74,7 +74,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
       const name = sanitizeString(body.name, 50)
       const color = body.color ? sanitizeString(body.color, 20) : null
 
-      // 检查标签是否已存在
+      // 
       const existing = await context.env.DB.prepare(
         'SELECT id FROM tags WHERE user_id = ? AND LOWER(name) = LOWER(?) AND deleted_at IS NULL'
       )

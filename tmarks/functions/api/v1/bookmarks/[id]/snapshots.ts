@@ -1,7 +1,7 @@
 /**
- * 书签快照 API
- * 路径: /api/v1/bookmarks/:id/snapshots
- * 认证: JWT Token
+ *  API
+ * : /api/v1/bookmarks/:id/snapshots
+ * : JWT Token
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -13,7 +13,7 @@ import { generateNanoId } from '../../lib/crypto'
 import { checkR2Quota } from '../../lib/storage-quota'
 import { cleanupOldSnapshots } from './snapshot-cleanup'
 
-// 使用 Web Crypto API 计算 SHA-256 哈希
+//  Web Crypto API  SHA-256 
 async function sha256(content: string): Promise<string> {
   const encoder = new TextEncoder()
   const data = encoder.encode(content)
@@ -29,10 +29,10 @@ interface CreateSnapshotRequest {
   force?: boolean
 }
 
-// 配置常量
+// 
 const MAX_SNAPSHOT_SIZE = 50 * 1024 * 1024 // 50MB
 
-// GET /api/v1/bookmarks/:id/snapshots - 获取快照列表
+// GET /api/v1/bookmarks/:id/snapshots - 
 export const onRequestGet: PagesFunction<Env, 'id', AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -42,7 +42,7 @@ export const onRequestGet: PagesFunction<Env, 'id', AuthContext>[] = [
     try {
       const db = context.env.DB
 
-      // 验证书签所有权
+      // 
       const bookmark = await db
         .prepare('SELECT id FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL')
         .bind(bookmarkId, userId)
@@ -52,7 +52,7 @@ export const onRequestGet: PagesFunction<Env, 'id', AuthContext>[] = [
         return notFound('Bookmark not found')
       }
 
-      // 获取快照列表
+      // 
       const snapshots = await db
         .prepare(
           `SELECT id, version, file_size, content_hash, snapshot_title, 
@@ -64,21 +64,21 @@ export const onRequestGet: PagesFunction<Env, 'id', AuthContext>[] = [
         .bind(bookmarkId, userId)
         .all()
 
-      // 为每个快照生成签名 URL
+      //  URL
       const snapshotsWithUrls = await Promise.all(
         (snapshots.results || []).map(async (snapshot: Record<string, unknown>) => {
-          // 生成 24 小时有效的签名 URL
+          //  24  URL
           const { signature, expires } = await generateSignedUrl(
             {
               userId,
               resourceId: snapshot.id,
-              expiresIn: 24 * 3600, // 24 小时
+              expiresIn: 24 * 3600, // 24 
               action: 'view',
             },
             context.env.JWT_SECRET
           )
 
-          // 构建签名 URL
+          //  URL
           const baseUrl = new URL(context.request.url).origin
           const viewUrl = `${baseUrl}/api/v1/bookmarks/${bookmarkId}/snapshots/${snapshot.id}/view?sig=${signature}&exp=${expires}&u=${userId}&a=view`
 
@@ -100,7 +100,7 @@ export const onRequestGet: PagesFunction<Env, 'id', AuthContext>[] = [
   },
 ]
 
-// POST /api/v1/bookmarks/:id/snapshots - 创建快照
+// POST /api/v1/bookmarks/:id/snapshots - 
 export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -115,7 +115,7 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
         return badRequest('Missing required fields')
       }
 
-      // 检查文件大小
+      // 
       const originalSize = new Blob([html_content]).size
       if (originalSize > MAX_SNAPSHOT_SIZE) {
         return badRequest(
@@ -130,7 +130,7 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
         return internalError('Storage not configured')
       }
 
-      // 验证书签所有权
+      // 
       const bookmark = await db
         .prepare('SELECT id FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL')
         .bind(bookmarkId, userId)
@@ -140,10 +140,10 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
         return notFound('Bookmark not found')
       }
 
-      // 计算内容哈希
+      // 
       const contentHash = await sha256(html_content)
 
-      // 检查是否重复（如果启用去重）
+      // （）
       if (!force) {
         const latestSnapshot = await db
           .prepare(
@@ -161,7 +161,7 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
         }
       }
 
-      // 获取下一个版本号
+      // 
       const versionResult = await db
         .prepare(
           `SELECT COALESCE(MAX(version), 0) + 1 as next_version
@@ -173,15 +173,15 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
 
       const version = versionResult?.next_version as number || 1
 
-      // 生成 R2 键
+      //  R2 
       const timestamp = Date.now()
       const r2Key = `${userId}/${bookmarkId}/snapshot-${timestamp}-v${version}.html`
 
-      // 将 HTML 字符串转换为 UTF-8 编码的字节数组
+      //  HTML  UTF-8 
       const encoder = new TextEncoder()
       const htmlBytes = encoder.encode(html_content)
 
-      // 存储配额检查（使用 bookmark_snapshots.file_size 的单位）
+      // （ bookmark_snapshots.file_size ）
       const quota = await checkR2Quota(db, context.env, htmlBytes.length)
       if (!quota.allowed) {
         const usedGB = quota.usedBytes / (1024 * 1024 * 1024)
@@ -192,7 +192,7 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
         })
       }
 
-      // 上传 UTF-8 编码的字节数组到 R2
+      //  UTF-8  R2
       await bucket.put(r2Key, htmlBytes, {
         httpMetadata: {
           contentType: 'text/html; charset=utf-8',
@@ -208,9 +208,9 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
       const snapshotId = generateNanoId()
       const now = new Date().toISOString()
 
-      // 开始事务（版本号在 INSERT 中原子分配，避免并发竞态）
+      // （ INSERT ，）
       const batch = [
-        // 插入新快照，原子化分配版本号
+        // ，
         db.prepare(
           `INSERT INTO bookmark_snapshots
            (id, bookmark_id, user_id, version, is_latest, content_hash,
@@ -233,14 +233,14 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
           now
         ),
 
-        // 更新旧快照的 is_latest 标志
+        //  is_latest 
         db.prepare(
           `UPDATE bookmark_snapshots 
            SET is_latest = 0 
            WHERE bookmark_id = ? AND id != ?`
         ).bind(bookmarkId, snapshotId),
 
-        // 更新书签表（增加快照计数）
+        // （）
         db.prepare(
           `UPDATE bookmarks 
            SET has_snapshot = 1, 
@@ -252,10 +252,10 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
 
       await db.batch(batch)
 
-      // 检查并清理旧快照
+      // 
       await cleanupOldSnapshots(db, bucket, bookmarkId, userId)
 
-      // 生成签名 URL（24 小时有效）
+      //  URL（24 ）
       const { signature, expires } = await generateSignedUrl(
         {
           userId,
@@ -266,7 +266,7 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
         context.env.JWT_SECRET
       )
 
-      // 构建签名 URL
+      //  URL
       const baseUrl = new URL(context.request.url).origin
       const viewUrl = `${baseUrl}/api/v1/bookmarks/${bookmarkId}/snapshots/${snapshotId}/view?sig=${signature}&exp=${expires}&u=${userId}&a=view`
 

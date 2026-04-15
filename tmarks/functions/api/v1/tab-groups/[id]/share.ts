@@ -1,7 +1,7 @@
 /**
- * 分享标签页组 API
- * 路径: /api/v1/tab-groups/:id/share
- * 认证: JWT Token (Bearer)
+ *  API
+ * : /api/v1/tab-groups/:id/share
+ * : JWT Token (Bearer)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -30,7 +30,7 @@ interface CreateShareRequest {
   expires_in_days?: number
 }
 
-// POST /api/v1/tab-groups/:id/share - 创建分享链接
+// POST /api/v1/tab-groups/:id/share - 
 export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -107,7 +107,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// GET /api/v1/tab-groups/:id/share - 获取分享信息
+// GET /api/v1/tab-groups/:id/share - 
 export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -151,7 +151,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// DELETE /api/v1/tab-groups/:id/share - 删除分享
+// DELETE /api/v1/tab-groups/:id/share - 
 export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {

@@ -37,12 +37,12 @@ export async function handleBatchCreate(
     created_bookmarks: [] as Array<{ id: string; url: string; title: string }>
   }
 
-  // 批量处理书签
+  // 
   for (let i = 0; i < bookmarks.length; i++) {
     const item = bookmarks[i]
 
     try {
-      // 验证必填字段
+      // 
       if (!item.title || !item.url) {
         result.failed++
         result.errors!.push({
@@ -53,7 +53,7 @@ export async function handleBatchCreate(
         continue
       }
 
-      // 验证 URL 格式
+      //  URL 
       if (!isValidUrl(item.url)) {
         result.failed++
         result.errors!.push({
@@ -73,7 +73,7 @@ export async function handleBatchCreate(
       const isArchived = item.is_archived ? 1 : 0
       const isPublic = item.is_public ? 1 : 0
 
-      // 检�?URL 是否已存�?      const existing = await db.prepare(
+      // �?URL �?      const existing = await db.prepare(
         'SELECT id, deleted_at FROM bookmarks WHERE user_id = ? AND url = ?'
       )
         .bind(userId, url)
@@ -111,7 +111,7 @@ export async function handleBatchCreate(
           .run()
       }
 
-      // 处理标签
+      // 
       if (item.tags && item.tags.length > 0) {
         await createOrLinkTags(db, bookmarkId, item.tags, userId)
       }
@@ -130,11 +130,11 @@ export async function handleBatchCreate(
     }
   }
 
-  // 清理空错误数�?  if (result.errors && result.errors.length === 0) {
+  // �?  if (result.errors && result.errors.length === 0) {
     delete result.errors
   }
 
-  // 更新标签计数
+  // 
   if (result.success > 0) {
     await db.prepare(
       `UPDATE tags

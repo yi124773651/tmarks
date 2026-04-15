@@ -22,7 +22,7 @@ export const onRequestPost: PagesFunction<Env>[] = [
       return badRequest('Username and password are required')
     }
 
-    // 查找用户（支持用户名或邮箱登录）
+    // （）
     type DbUser = User & { role?: string | null }
 
     let user: DbUser | null = null
@@ -50,7 +50,7 @@ export const onRequestPost: PagesFunction<Env>[] = [
     }
 
     if (!user) {
-      // 记录失败的登录尝�?
+      // �?
       const ip = context.request.headers.get('CF-Connecting-IP') || 'unknown'
       await context.env.DB.prepare(
         `INSERT INTO audit_logs (event_type, payload, ip, created_at)
@@ -66,11 +66,11 @@ export const onRequestPost: PagesFunction<Env>[] = [
       return unauthorized('Invalid username or password')
     }
 
-    // 验证密码
+    // 
     const isValid = await verifyPassword(body.password, user.password_hash)
 
     if (!isValid) {
-      // 记录失败的登录尝�?
+      // �?
       const ip = context.request.headers.get('CF-Connecting-IP') || 'unknown'
       await context.env.DB.prepare(
         `INSERT INTO audit_logs (user_id, event_type, payload, ip, created_at)
@@ -87,12 +87,12 @@ export const onRequestPost: PagesFunction<Env>[] = [
       return unauthorized('Invalid username or password')
     }
 
-    // 生成 session_id
+    //  session_id
     const sessionId = generateUUID()
 
     const role = user.role ?? 'user'
 
-    // 计算访问令牌有效期（秒）
+    // （）
     const accessTokenExpiresInStr = getJwtAccessTokenExpiresIn(context.env)
     const accessTokenExpiresIn = parseExpiry(accessTokenExpiresInStr)
 
@@ -102,16 +102,16 @@ export const onRequestPost: PagesFunction<Env>[] = [
       accessTokenExpiresInStr
     )
 
-    // 生成刷新令牌
+    // 
     const refreshToken = generateToken(32)
     const refreshTokenHash = await hashRefreshToken(refreshToken)
 
-    // 计算刷新令牌过期时间
+    // 
     const refreshTokenExpiresInStr = getJwtRefreshTokenExpiresIn(context.env)
     const refreshTokenExpiresIn = parseExpiry(refreshTokenExpiresInStr)
     const refreshTokenExpiresAt = new Date(Date.now() + refreshTokenExpiresIn * 1000)
 
-    // 存储刷新令牌
+    // 
     await context.env.DB.prepare(
       `INSERT INTO auth_tokens (user_id, refresh_token_hash, expires_at, created_at)
        VALUES (?, ?, ?, ?)`
@@ -119,7 +119,7 @@ export const onRequestPost: PagesFunction<Env>[] = [
       .bind(user.id, refreshTokenHash, refreshTokenExpiresAt.toISOString(), new Date().toISOString())
       .run()
 
-    // 记录成功的登�?
+    // �?
     const ip = context.request.headers.get('CF-Connecting-IP') || 'unknown'
     const userAgent = context.request.headers.get('User-Agent') || 'unknown'
 

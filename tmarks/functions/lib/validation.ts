@@ -14,13 +14,13 @@ export function isValidUrl(url: string): boolean {
 }
 
 export function isValidUsername(username: string): boolean {
-  // 3-20 个字符，字母、数字、下划线
+  // 3-20 ，、、
   const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/
   return usernameRegex.test(username)
 }
 
 export function isValidPassword(password: string): boolean {
-  // 至少 8 个字符，且包含字母和数字
+  //  8 ，
   return password.length >= 8 && /[a-zA-Z]/.test(password) && /[0-9]/.test(password)
 }
 

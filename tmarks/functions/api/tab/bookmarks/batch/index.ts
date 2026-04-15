@@ -1,7 +1,7 @@
 /**
- * 批量书签操作 API
- * 路径: /api/tab/bookmarks/batch
- * 认证: API Key (X-API-Key header)
+ *  API
+ * : /api/tab/bookmarks/batch
+ * : API Key (X-API-Key header)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -47,7 +47,7 @@ interface BatchCreateResult {
 
 /**
  * GET /api/tab/bookmarks/batch
- * 不支�?GET 方法
+ * �?GET 
  */
 export const onRequestGet: PagesFunction<Env, RouteParams>[] = [
   async () => {
@@ -68,7 +68,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams>[] = [
 
 /**
  * POST /api/tab/bookmarks/batch
- * 批量创建书签
+ * 
  */
 export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('bookmarks.create'),

@@ -9,7 +9,7 @@ interface UpdateTagRequest {
   color?: string
 }
 
-// PATCH /api/v1/tags/:id - 更新标签
+// PATCH /api/v1/tags/:id - 
 export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -18,7 +18,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const tagId = context.params.id
       const body = await context.request.json() as UpdateTagRequest
 
-      // 检查标签是否存在且属于当前用户
+      // 
       const tag = await context.env.DB.prepare(
         'SELECT * FROM tags WHERE id = ? AND user_id = ? AND deleted_at IS NULL'
       )
@@ -35,7 +35,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
       if (body.name !== undefined) {
         const name = sanitizeString(body.name, 50)
 
-        // 检查新名称是否与其他标签冲突
+        // 
         const existing = await context.env.DB.prepare(
           'SELECT id FROM tags WHERE user_id = ? AND LOWER(name) = LOWER(?) AND id != ? AND deleted_at IS NULL'
         )
@@ -68,7 +68,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
         .bind(...values)
         .run()
 
-      // 获取更新后的标签
+      // 
       const updatedTag = await context.env.DB.prepare('SELECT * FROM tags WHERE id = ? AND user_id = ?')
         .bind(tagId, userId)
         .first<Tag>()
@@ -81,7 +81,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// DELETE /api/v1/tags/:id - 删除标签（级联删除关联）
+// DELETE /api/v1/tags/:id - （）
 export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -89,7 +89,7 @@ export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const userId = context.data.user_id
       const tagId = context.params.id
 
-      // 检查标签是否存在且属于当前用户
+      // 
       const tag = await context.env.DB.prepare(
         'SELECT id FROM tags WHERE id = ? AND user_id = ? AND deleted_at IS NULL'
       )
@@ -102,12 +102,12 @@ export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
 
       const now = new Date().toISOString()
 
-      // 软删除标签
+      // 
       await context.env.DB.prepare('UPDATE tags SET deleted_at = ?, updated_at = ? WHERE id = ? AND user_id = ?')
         .bind(now, now, tagId, userId)
         .run()
 
-      // 删除所有书签-标签关联
+      // -
       await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE tag_id = ? AND user_id = ?')
         .bind(tagId, userId)
         .run()

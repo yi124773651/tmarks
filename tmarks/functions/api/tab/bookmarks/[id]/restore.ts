@@ -1,7 +1,7 @@
 /**
- * 对外 API - 从回收站恢复书签
- * 路径: /api/tab/bookmarks/:id/restore
- * 认证: API Key (X-API-Key header)
+ *  API - 
+ * : /api/tab/bookmarks/:id/restore
+ * : API Key (X-API-Key header)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -10,7 +10,7 @@ import { success, notFound, internalError } from '../../lib/response'
 import { requireApiKeyAuth, ApiKeyAuthContext } from '../../../../middleware/api-key-auth-pages'
 import { normalizeBookmark } from '../../lib/bookmark-utils'
 
-// PATCH /api/tab/bookmarks/:id/restore - 从回收站恢复
+// PATCH /api/tab/bookmarks/:id/restore - 
 export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('bookmarks.update'),
   async (context) => {
@@ -18,7 +18,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[
     const bookmarkId = context.params.id
 
     try {
-      // 检查书签是否存在且已被软删除
+      // 
       const existing = await context.env.DB.prepare(
         'SELECT id FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL'
       )
@@ -31,14 +31,14 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[
 
       const now = new Date().toISOString()
 
-      // 恢复：清除 deleted_at
+      // ： deleted_at
       await context.env.DB.prepare(
         'UPDATE bookmarks SET deleted_at = NULL, updated_at = ? WHERE id = ?'
       )
         .bind(now, bookmarkId)
         .run()
 
-      // 返回恢复后的书签
+      // 
       const bookmarkRow = await context.env.DB.prepare(
         'SELECT * FROM bookmarks WHERE id = ?'
       )
@@ -49,7 +49,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[
         return internalError('Failed to load bookmark after restore')
       }
 
-      // 获取标签
+      // 
       const { results: tags } = await context.env.DB.prepare(
         `SELECT t.id, t.name, t.color
          FROM tags t

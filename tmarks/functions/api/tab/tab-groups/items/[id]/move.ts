@@ -1,7 +1,7 @@
 /**
- * 内部 API - 移动标签页项到其他分组
- * 路径: /api/tab/tab-groups/items/:id/move
- * 认证: API Key (X-API-Key header) 或 JWT Token (Bearer)
+ *  API - 
+ * : /api/tab/tab-groups/items/:id/move
+ * : API Key (X-API-Key header)  JWT Token (Bearer)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -26,7 +26,7 @@ interface MoveItemRequest {
   position?: number
 }
 
-// POST /api/tab/tab-groups/items/:id/move - 移动标签页项到其他分组
+// POST /api/tab/tab-groups/items/:id/move - 
 export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] = [
   requireDualAuth('tab_groups.update'),
   async (context) => {
@@ -40,7 +40,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
         return badRequest('target_group_id is required')
       }
 
-      // 1. 验证标签页项存在
+      // 1. 
       const item = await context.env.DB.prepare(
         `SELECT tgi.*, tg.user_id 
          FROM tab_group_items tgi
@@ -58,7 +58,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
         return notFound('Tab group item not found')
       }
 
-      // 2. 验证目标分组存在且属于当前用户
+      // 2. 
       const targetGroup = await context.env.DB.prepare(
         'SELECT id, user_id FROM tab_groups WHERE id = ? AND user_id = ?'
       )
@@ -69,17 +69,17 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
         return badRequest('Target group not found or access denied')
       }
 
-      // 3. 如果目标分组和源分组相同，只更新位置
+      // 3. ，
       if (item.group_id === body.target_group_id) {
         if (body.position !== undefined) {
-          // 更新位置
+          // 
           await context.env.DB.prepare(
             'UPDATE tab_group_items SET position = ? WHERE id = ?'
           )
             .bind(body.position, itemId)
             .run()
 
-          // 重新排序同组内的其他项
+          // 
           await context.env.DB.prepare(
             `UPDATE tab_group_items 
              SET position = position + 1 
@@ -89,9 +89,9 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
             .run()
         }
       } else {
-        // 4. 移动到不同的分组
+        // 4. 
 
-        // 4.1 获取目标分组中的最大位置
+        // 4.1 
         const maxPositionResult = await context.env.DB.prepare(
           'SELECT MAX(position) as max_position FROM tab_group_items WHERE group_id = ?'
         )
@@ -103,7 +103,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
             ? body.position
             : (maxPositionResult?.max_position ?? -1) + 1
 
-        // 4.2 更新标签页项的分组和位置
+        // 4.2 
         await context.env.DB.prepare(
           `UPDATE tab_group_items 
            SET group_id = ?, position = ? 
@@ -112,7 +112,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
           .bind(body.target_group_id, targetPosition, itemId)
           .run()
 
-        // 4.3 重新排序源分组中的其他项（填补空缺）
+        // 4.3 （）
         await context.env.DB.prepare(
           `UPDATE tab_group_items 
            SET position = position - 1 
@@ -121,7 +121,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
           .bind(item.group_id, item.position)
           .run()
 
-        // 4.4 重新排序目标分组中的其他项（为新项腾出空间）
+        // 4.4 （）
         if (body.position !== undefined) {
           await context.env.DB.prepare(
             `UPDATE tab_group_items 
@@ -133,7 +133,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
         }
       }
 
-      // 5. 获取更新后的标签页项
+      // 5. 
       const updatedItem = await context.env.DB.prepare(
         'SELECT * FROM tab_group_items WHERE id = ?'
       )

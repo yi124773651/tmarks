@@ -1,7 +1,7 @@
 /**
- * 对外 API - 标签页组操作
- * 路径: /api/v1/tab-groups
- * 认证: JWT Token
+ *  API - 
+ * : /api/v1/tab-groups
+ * : JWT Token
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -146,7 +146,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const isFolder = body.is_folder || false
 
       const now = new Date()
-      const defaultTitle = body.title || (isFolder ? '新文件夹' : now.toLocaleString('zh-CN', {
+      const defaultTitle = body.title || (isFolder ? '' : now.toLocaleString('zh-CN', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',

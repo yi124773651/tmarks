@@ -5,10 +5,10 @@ import { success, internalError } from '../../../lib/response'
 import { getCurrentR2UsageBytes, getR2MaxTotalBytes } from '../../../lib/storage-quota'
 
 /**
- * R2 存储配额展示接口
+ * R2 
  * GET /api/v1/settings/storage
  *
- * 返回当前 R2 使用量和配额信息（目前为全局配额，而非按用户划分）�?
+ *  R2 （，）�?
  */
 export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,

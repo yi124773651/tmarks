@@ -1,5 +1,5 @@
 /**
- * API Key Validator - 验证和权限检�? */
+ * API Key Validator - �? */
 
 import { hashApiKey } from './generator'
 import { hasPermission } from '../../../shared/permissions'
@@ -22,25 +22,25 @@ interface ValidationResult {
 }
 
 /**
- * 验证 API Key
- * @param apiKey API Key 明文
+ *  API Key
+ * @param apiKey API Key 
  * @param db D1 Database
- * @returns 验证结果
+ * @returns 
  */
 export async function validateApiKey(
   apiKey: string,
   db: D1Database
 ): Promise<ValidationResult> {
-  // 1. 格式验证
+  // 1. 
   if (!apiKey || !apiKey.startsWith('tmk_')) {
     return { valid: false, error: 'Invalid API Key format' }
   }
 
   try {
-    // 2. 计算哈希
+    // 2. 
     const keyHash = await hashApiKey(apiKey)
 
-    // 3. 查询数据�?    const keyData = await db
+    // 3. �?    const keyData = await db
       .prepare(
         `SELECT id, user_id, permissions, status, expires_at, last_used_at, last_used_ip
          FROM api_keys
@@ -53,7 +53,7 @@ export async function validateApiKey(
       return { valid: false, error: 'API Key not found' }
     }
 
-    // 4. 检查状�?    if (keyData.status === 'revoked') {
+    // 4. �?    if (keyData.status === 'revoked') {
       return { valid: false, error: 'API Key has been revoked' }
     }
 
@@ -61,15 +61,15 @@ export async function validateApiKey(
       return { valid: false, error: 'API Key has expired' }
     }
 
-    // 5. 检查过期时�?    if (keyData.expires_at) {
+    // 5. �?    if (keyData.expires_at) {
       const expiresAt = new Date(keyData.expires_at)
       if (expiresAt < new Date()) {
-        // 标记为过�?        await markAsExpired(keyData.id, db)
+        // �?        await markAsExpired(keyData.id, db)
         return { valid: false, error: 'API Key has expired' }
       }
     }
 
-    // 6. 解析权限
+    // 6. 
     const permissions = JSON.parse(keyData.permissions) as string[]
 
     return {
@@ -84,15 +84,15 @@ export async function validateApiKey(
 }
 
 /**
- * 检�?API Key 是否有特定权�? * @param permissions API Key 权限列表
- * @param requiredPermission 需要的权限
- * @returns 是否有权�? */
+ * �?API Key �? * @param permissions API Key 
+ * @param requiredPermission 
+ * @returns �? */
 export function checkPermission(permissions: string[], requiredPermission: string): boolean {
   return hasPermission(permissions, requiredPermission)
 }
 
 /**
- * 标记 API Key 为已过期
+ *  API Key 
  * @param keyId API Key ID
  * @param db D1 Database
  */
@@ -108,8 +108,8 @@ async function markAsExpired(keyId: string, db: D1Database): Promise<void> {
 }
 
 /**
- * 更新 API Key 最后使用信�? * @param keyId API Key ID
- * @param ip 请求 IP
+ *  API Key �? * @param keyId API Key ID
+ * @param ip  IP
  * @param db D1 Database
  */
 export async function updateLastUsed(

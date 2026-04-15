@@ -3,7 +3,7 @@ import type { Env } from '../../lib/types'
 import { success, notFound, internalError } from '../../lib/response'
 import { requireAuth, AuthContext } from '../../../../middleware/auth'
 
-// POST /api/v1/bookmarks/:id/click - 记录书签点击
+// POST /api/v1/bookmarks/:id/click - 
 export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -13,7 +13,7 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
       const now = new Date().toISOString()
       const db = context.env.DB
 
-      // 检查书签是否存在且属于当前用户
+      // 
       const bookmark = await db.prepare(
         'SELECT id FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL'
       )
@@ -24,7 +24,7 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
         return notFound('Bookmark not found')
       }
 
-      // 更新点击次数和最后点击时间，并记录点击事件
+      // ，
       await db.batch([
         db.prepare(
           'UPDATE bookmarks SET click_count = click_count + 1, last_clicked_at = ? WHERE id = ?'

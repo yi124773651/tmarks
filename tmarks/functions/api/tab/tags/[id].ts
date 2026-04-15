@@ -1,7 +1,7 @@
 /**
- * 对外 API - 单个标签操作
- * 路径: /api/tab/tags/:id
- * 认证: API Key (X-API-Key header)
+ *  API - 
+ * : /api/tab/tags/:id
+ * : API Key (X-API-Key header)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -15,7 +15,7 @@ interface UpdateTagRequest {
   color?: string
 }
 
-// GET /api/tags/:id - 获取单个标签详情
+// GET /api/tags/:id - 
 export const onRequestGet: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('tags.read'),
   async (context) => {
@@ -52,7 +52,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] 
   },
 ]
 
-// PATCH /api/tags/:id - 更新标签
+// PATCH /api/tags/:id - 
 export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('tags.update'),
   async (context) => {
@@ -74,14 +74,14 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[
       const updates: string[] = []
       const values: SQLParam[] = []
 
-      // 名称
+      // 
       if (body.name !== undefined) {
         if (!body.name.trim()) {
           return badRequest('Tag name cannot be empty')
         }
         const name = sanitizeString(body.name, 50)
 
-        // 检查名称是否与其他标签重复
+        // 
         const duplicate = await context.env.DB.prepare(
           'SELECT id FROM tags WHERE user_id = ? AND LOWER(name) = LOWER(?) AND id != ? AND deleted_at IS NULL'
         )
@@ -96,7 +96,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[
         values.push(name)
       }
 
-      // 颜色
+      // 
       if (body.color !== undefined) {
         updates.push('color = ?')
         values.push(body.color ? sanitizeString(body.color, 20) : null)
@@ -129,7 +129,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[
   },
 ]
 
-// DELETE /api/tags/:id - 删除标签
+// DELETE /api/tags/:id - 
 export const onRequestDelete: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('tags.delete'),
   async (context) => {
@@ -149,14 +149,14 @@ export const onRequestDelete: PagesFunction<Env, RouteParams, ApiKeyAuthContext>
 
       const now = new Date().toISOString()
 
-      // 软删除标签
+      // 
       await context.env.DB.prepare(
         'UPDATE tags SET deleted_at = ?, updated_at = ? WHERE id = ?'
       )
         .bind(now, now, tagId)
         .run()
 
-      // 删除标签关联
+      // 
       await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE tag_id = ?')
         .bind(tagId)
         .run()

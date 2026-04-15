@@ -47,17 +47,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const pageSize = Math.min(parseInt(url.searchParams.get('page_size') || '30'), 100)
   const pageCursor = url.searchParams.get('page_cursor') || ''
 
-  // 如果没有分页参数，返回旧版本的完整数据（向后兼容）
+  // ，（）
   const usePagination = url.searchParams.has('page_size') || url.searchParams.has('page_cursor')
 
-  // 初始化缓存服务
+  // 
   const cache = new CacheService(context.env)
   const cacheKey = usePagination
     ? generateCacheKey('publicShare', slug, { page_cursor: pageCursor || 'first', page_size: pageSize })
     : generateCacheKey('publicShare', slug)
 
   try {
-    // 验证用户和分享设置
+    // 
     const user = await context.env.DB.prepare(
       `SELECT id as user_id, username, public_share_enabled, public_slug, public_page_title, public_page_description
        FROM users
@@ -70,16 +70,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       return notFound('Share link not found')
     }
 
-    // 尝试从缓存获取
+    // 
     const cached = await cache.get<PublicSharePayload | PublicSharePaginatedPayload>('publicShare', cacheKey)
     if (cached) {
       return success({
         ...cached,
-        _cached: true, // 标记为缓存数据
+        _cached: true, // 
       })
     }
 
-    // 构建书签查询
+    // 
     let bookmarkQuery = `
       SELECT *
       FROM bookmarks
@@ -89,7 +89,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     `
     const bookmarkParams: (string | number)[] = [user.user_id]
 
-    // 游标分页
+    // 
     if (usePagination && pageCursor) {
       bookmarkQuery += ' AND id < ?'
       bookmarkParams.push(pageCursor)
@@ -97,17 +97,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     bookmarkQuery += ' ORDER BY is_pinned DESC, created_at DESC'
 
-    // 如果使用分页，添加 LIMIT
+    // ， LIMIT
     if (usePagination) {
       bookmarkQuery += ' LIMIT ?'
-      bookmarkParams.push(pageSize + 1) // 多获取一条以判断是否有下一页
+      bookmarkParams.push(pageSize + 1) // 
     }
 
     const { results: bookmarkRows } = await context.env.DB.prepare(bookmarkQuery)
       .bind(...bookmarkParams)
       .all<BookmarkRow>()
 
-    // 判断是否有下一页（仅分页模式）
+    // （）
     const hasMore = usePagination && bookmarkRows.length > pageSize
     const bookmarksToProcess = usePagination && hasMore
       ? bookmarkRows.slice(0, pageSize)
@@ -153,19 +153,19 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       tags: tagsByBookmark.get(row.id) || [],
     }))
 
-    // 获取所有标签统计（仅在非分页或第一页时计算）
+    // （）
     let tags: Array<{ id: string; name: string; color: string | null; bookmark_count: number }> = []
 
     if (!usePagination || !pageCursor) {
       const tagsCacheKey = generateCacheKey('publicShare', `${slug}:tags`)
       
-      // 尝试从缓存获取标签
+      // 
       const cachedTags = await cache.get<typeof tags>('publicShare', tagsCacheKey)
 
       if (cachedTags) {
         tags = cachedTags
       } else {
-        // 计算标签统计
+        // 
         const { results: tagStats } = await context.env.DB.prepare(
           `SELECT t.id, t.name, t.color, COUNT(DISTINCT bt.bookmark_id) as bookmark_count
            FROM tags t
@@ -183,14 +183,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
         tags = tagStats || []
 
-        // 缓存标签统计（30分钟）
+        // （30）
         if (tags.length > 0) {
           await cache.set('publicShare', tagsCacheKey, tags, { async: true })
         }
       }
     }
 
-    // 返回分页数据或完整数据
+    // 
     if (usePagination) {
       const paginatedPayload: PublicSharePaginatedPayload = {
         profile: {
@@ -209,7 +209,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         },
       }
 
-      // 异步写入缓存 (30分钟 TTL, Level 0 配置)
+      //  (30 TTL, Level 0 )
       await cache.set('publicShare', cacheKey, paginatedPayload, { async: true })
 
       return success(paginatedPayload)
@@ -226,7 +226,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         generated_at: new Date().toISOString(),
       }
 
-      // 异步写入缓存 (30分钟 TTL, Level 0 配置)
+      //  (30 TTL, Level 0 )
       await cache.set('publicShare', cacheKey, payload, { async: true })
 
       return success(payload)

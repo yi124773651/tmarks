@@ -1,7 +1,7 @@
 /**
- * 对外 API - 当前用户信息
- * 路径: /api/tab/me
- * 认证: API Key (X-API-Key header)
+ *  API - 
+ * : /api/tab/me
+ * : API Key (X-API-Key header)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -9,7 +9,7 @@ import type { Env, RouteParams } from '../../lib/types'
 import { success, internalError } from '../../lib/response'
 import { requireApiKeyAuth, ApiKeyAuthContext } from '../../middleware/api-key-auth-pages'
 
-// GET /api/me - 获取当前用户信息
+// GET /api/me - 
 type BookmarkStats = {
   total_bookmarks: number | null
   pinned_bookmarks: number | null
@@ -21,7 +21,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] 
     const userId = context.data.user_id
 
     try {
-      // 获取用户信息
+      // 
       const user = await context.env.DB.prepare(
         'SELECT id, username, email, created_at FROM users WHERE id = ?'
       )
@@ -32,7 +32,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] 
         return internalError('User not found')
       }
 
-      // 获取统计信息
+      // 
       const stats = await context.env.DB.prepare(
         `SELECT
           COUNT(CASE WHEN deleted_at IS NULL THEN 1 END) as total_bookmarks,

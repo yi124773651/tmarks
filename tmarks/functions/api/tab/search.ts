@@ -1,7 +1,7 @@
 /**
- * 对外 API - 全局搜索
- * 路径: /api/tab/search
- * 认证: API Key (X-API-Key header)
+ * External API - Global Search
+ * Path: /api/tab/search
+ * Auth: API Key (X-API-Key header)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -28,7 +28,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] 
     const searchTerm = `%${query.trim()}%`
     const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100)
 
-      try {
+    try {
       // Search bookmarks
       const { results: bookmarks } = await context.env.DB.prepare(
         `SELECT b.*

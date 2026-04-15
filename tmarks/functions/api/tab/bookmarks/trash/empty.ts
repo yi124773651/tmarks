@@ -1,7 +1,7 @@
 /**
- * 对外 API - 清空书签回收�?
- * 路径: /api/tab/bookmarks/trash/empty
- * 认证: API Key (X-API-Key header)
+ *  API - �?
+ * : /api/tab/bookmarks/trash/empty
+ * : API Key (X-API-Key header)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -9,14 +9,14 @@ import type { Env } from '../../../lib/types'
 import { success, internalError } from '../../../lib/response'
 import { requireApiKeyAuth, ApiKeyAuthContext } from '../../../../middleware/api-key-auth-pages'
 
-// DELETE /api/tab/bookmarks/trash/empty - 清空回收�?
+// DELETE /api/tab/bookmarks/trash/empty - �?
 export const onRequestDelete: PagesFunction<Env, string, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('bookmarks.delete'),
   async (context) => {
     const userId = context.data.user_id
 
     try {
-      // 获取回收站中的书�?ID
+      // �?ID
       const { results: trashBookmarks } = await context.env.DB.prepare(
         'SELECT id FROM bookmarks WHERE user_id = ? AND deleted_at IS NOT NULL'
       )
@@ -29,21 +29,21 @@ export const onRequestDelete: PagesFunction<Env, string, ApiKeyAuthContext>[] = 
 
       const bookmarkIds = trashBookmarks.map(b => b.id)
 
-      // 删除标签关联
+      // 
       for (const id of bookmarkIds) {
         await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ?')
           .bind(id)
           .run()
       }
 
-      // 删除快照
+      // 
       for (const id of bookmarkIds) {
         await context.env.DB.prepare('DELETE FROM bookmark_snapshots WHERE bookmark_id = ?')
           .bind(id)
           .run()
       }
 
-      // 永久删除所有回收站书签
+      // 
       await context.env.DB.prepare(
         'DELETE FROM bookmarks WHERE user_id = ? AND deleted_at IS NOT NULL'
       )

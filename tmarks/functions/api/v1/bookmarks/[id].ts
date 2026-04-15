@@ -12,13 +12,13 @@ interface UpdateBookmarkRequest {
   description?: string
   cover_image?: string
   favicon?: string
-  tag_ids?: string[]  // 兼容旧版：标签 ID 数组
-  tags?: string[]     // 新版：标签名称数组（推荐）
+  tag_ids?: string[]  // ： ID 
+  tags?: string[]     // ：（）
   is_pinned?: boolean
   is_public?: boolean
 }
 
-// PATCH /api/v1/bookmarks/:id - 更新书签
+// PATCH /api/v1/bookmarks/:id - 
 export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -27,7 +27,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const bookmarkId = context.params.id
       const body = await context.request.json() as UpdateBookmarkRequest
 
-      // 检查书签是否存在且属于当前用户
+      // 
       const bookmarkRow = await context.env.DB.prepare(
         'SELECT * FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL'
       )
@@ -38,12 +38,12 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
         return notFound('Bookmark not found')
       }
 
-      // 验证输入
+      // 
       if (body.url && !isValidUrl(body.url)) {
         return badRequest('Invalid URL format')
       }
 
-      // 构建更新语句
+      // 
       const updates: string[] = []
       const values: SQLParam[] = []
 
@@ -96,7 +96,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
           .run()
       }
 
-      // 更新标签关联
+      // 
       if (body.tags !== undefined) {
         const { createOrLinkTags } = await import('../../../lib/tags')
         await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ? AND user_id = ?')
@@ -122,7 +122,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
         await context.env.DB.batch(stmts)
       }
 
-      // 获取更新后的书签
+      // 
       const updatedBookmarkRow = await context.env.DB.prepare('SELECT * FROM bookmarks WHERE id = ? AND user_id = ?')
         .bind(bookmarkId, userId)
         .first<BookmarkRow>()
@@ -155,7 +155,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// DELETE /api/v1/bookmarks/:id - 软删除书签
+// DELETE /api/v1/bookmarks/:id - 
 export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -163,7 +163,7 @@ export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const userId = context.data.user_id
       const bookmarkId = context.params.id
 
-      // 检查书签是否存在且属于当前用户
+      // 
       const bookmark = await context.env.DB.prepare(
         'SELECT id FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL'
       )
@@ -189,7 +189,7 @@ export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// PUT /api/v1/bookmarks/:id - 恢复已删除的书签
+// PUT /api/v1/bookmarks/:id - 
 export const onRequestPut: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -197,7 +197,7 @@ export const onRequestPut: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const userId = context.data.user_id
       const bookmarkId = context.params.id
 
-      // 检查书签是否存在、属于当前用户且已被软删除
+      // 、
       const bookmark = await context.env.DB.prepare(
         'SELECT * FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL'
       )
@@ -208,7 +208,7 @@ export const onRequestPut: PagesFunction<Env, RouteParams, AuthContext>[] = [
         return notFound('Deleted bookmark not found')
       }
 
-      // 恢复书签
+      // 
       const now = new Date().toISOString()
       await context.env.DB.prepare(
         'UPDATE bookmarks SET deleted_at = NULL, updated_at = ? WHERE id = ? AND user_id = ?'
@@ -216,7 +216,7 @@ export const onRequestPut: PagesFunction<Env, RouteParams, AuthContext>[] = [
         .bind(now, bookmarkId, userId)
         .run()
 
-      // 获取恢复后的书签
+      // 
       const restoredBookmarkRow = await context.env.DB.prepare('SELECT * FROM bookmarks WHERE id = ? AND user_id = ?')
         .bind(bookmarkId, userId)
         .first<BookmarkRow>()

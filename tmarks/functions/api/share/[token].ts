@@ -1,7 +1,7 @@
 /**
- * 公开分享访问 API
- * 路径: /api/share/:token
- * 认证: 无需认证（公开访问）
+ *  API
+ * : /api/share/:token
+ * : （）
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -41,7 +41,7 @@ interface TabGroupItemRow {
   created_at: string
 }
 
-// GET /api/share/:token - 获取分享的标签页组
+// GET /api/share/:token - 
 export const onRequestGet: PagesFunction<Env, RouteParams> = async (context) => {
   const shareToken = context.params.token
 

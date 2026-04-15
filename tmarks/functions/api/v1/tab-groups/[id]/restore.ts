@@ -1,7 +1,7 @@
 /**
- * 恢复标签页组 API
- * 路径: /api/v1/tab-groups/:id/restore
- * 认证: JWT Token (Bearer)
+ *  API
+ * : /api/v1/tab-groups/:id/restore
+ * : JWT Token (Bearer)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -15,7 +15,7 @@ interface TabGroupRow {
   is_deleted: number
 }
 
-// POST /api/v1/tab-groups/:id/restore - 恢复标签页组
+// POST /api/v1/tab-groups/:id/restore - 
 export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {

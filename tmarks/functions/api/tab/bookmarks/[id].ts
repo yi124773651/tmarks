@@ -1,7 +1,7 @@
 /**
- * 对外 API - 单个书签操作
- * 路径: /api/tab/bookmarks/:id
- * 认证: API Key (X-API-Key header)
+ *  API - 
+ * : /api/tab/bookmarks/:id
+ * : API Key (X-API-Key header)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -18,14 +18,14 @@ interface UpdateBookmarkRequest {
   description?: string
   cover_image?: string
   favicon?: string
-  tag_ids?: string[]  // 兼容旧版：标签 ID 数组
-  tags?: string[]     // 新版：标签名称数组（推荐）
+  tag_ids?: string[]  // ： ID 
+  tags?: string[]     // ：（）
   is_pinned?: boolean
   is_archived?: boolean
   is_public?: boolean
 }
 
-// GET /api/bookmarks/:id - 获取单个书签详情
+// GET /api/bookmarks/:id - 
 export const onRequestGet: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('bookmarks.read'),
   async (context) => {
@@ -77,7 +77,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] 
   },
 ]
 
-// PATCH /api/bookmarks/:id - 更新书签
+// PATCH /api/bookmarks/:id - 
 export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('bookmarks.update'),
   async (context) => {
@@ -228,7 +228,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[
   },
 ]
 
-// DELETE /api/bookmarks/:id - 删除书签
+// DELETE /api/bookmarks/:id - 
 export const onRequestDelete: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('bookmarks.delete'),
   async (context) => {

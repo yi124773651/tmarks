@@ -1,7 +1,7 @@
 /**
- * 书签快照 API
- * 路径: /api/tab/bookmarks/:id/snapshots
- * 认证: API Key (X-API-Key header)
+ *  API
+ * : /api/tab/bookmarks/:id/snapshots
+ * : API Key (X-API-Key header)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -10,7 +10,7 @@ import { success, badRequest, notFound, internalError } from '../../lib/response
 import { requireApiKeyAuth, ApiKeyAuthContext } from '../../../../middleware/api-key-auth-pages'
 import { checkR2Quota } from '../../lib/storage-quota'
 
-// 生成 nanoid 风格的短 ID（21 字符）
+//  nanoid  ID（21 ）
 function generateNanoId(): string {
   const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
   const length = 21
@@ -24,7 +24,7 @@ function generateNanoId(): string {
   return id
 }
 
-// 使用 Web Crypto API 计算 SHA-256 哈希
+//  Web Crypto API  SHA-256 
 async function sha256(content: string): Promise<string> {
   const encoder = new TextEncoder()
   const data = encoder.encode(content)
@@ -40,10 +40,10 @@ interface CreateSnapshotRequest {
   force?: boolean
 }
 
-// 配置常量
+// 
 const MAX_SNAPSHOT_SIZE = 50 * 1024 * 1024 // 50MB
 
-// GET /api/tab/bookmarks/:id/snapshots - 获取快照列表
+// GET /api/tab/bookmarks/:id/snapshots - 
 export const onRequestGet: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
   requireApiKeyAuth('bookmarks.read'),
   async (context) => {
@@ -53,7 +53,7 @@ export const onRequestGet: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
     try {
       const db = context.env.DB
 
-      // 验证书签所有权
+      // 
       const bookmark = await db
         .prepare('SELECT id FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL')
         .bind(bookmarkId, userId)
@@ -63,7 +63,7 @@ export const onRequestGet: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         return notFound('Bookmark not found')
       }
 
-      // 获取快照列表
+      // 
       const snapshots = await db
         .prepare(
           `SELECT id, version, file_size, content_hash, snapshot_title, 
@@ -86,7 +86,7 @@ export const onRequestGet: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
   },
 ]
 
-// POST /api/tab/bookmarks/:id/snapshots - 创建快照
+// POST /api/tab/bookmarks/:id/snapshots - 
 export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
   requireApiKeyAuth('bookmarks.create'),
   async (context) => {
@@ -101,7 +101,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         return badRequest('Missing required fields')
       }
 
-      // 检查文件大小
+      // 
       const originalSize = new Blob([html_content]).size
       if (originalSize > MAX_SNAPSHOT_SIZE) {
         return badRequest(
@@ -109,7 +109,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         )
       }
       
-      // 统计 data URL 的数量（用于调试）
+      //  data URL （）
       const dataUrlCount = (html_content.match(/src="data:/g) || []).length
       console.log(`[Snapshot API] Received HTML: ${(originalSize / 1024).toFixed(1)}KB, data URLs: ${dataUrlCount}`)
 
@@ -120,7 +120,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         return internalError('Storage not configured')
       }
 
-      // 验证书签所有权
+      // 
       const bookmark = await db
         .prepare('SELECT id FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL')
         .bind(bookmarkId, userId)
@@ -130,10 +130,10 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         return notFound('Bookmark not found')
       }
 
-      // 计算内容哈希
+      // 
       const contentHash = await sha256(html_content)
 
-      // 检查是否重复（如果启用去重）
+      // （）
       if (!force) {
         const latestSnapshot = await db
           .prepare(
@@ -151,7 +151,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         }
       }
 
-      // 获取下一个版本号
+      // 
       const versionResult = await db
         .prepare(
           `SELECT COALESCE(MAX(version), 0) + 1 as next_version
@@ -163,17 +163,17 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
 
       const version = versionResult?.next_version as number || 1
 
-      // 生成 R2 键
+      //  R2 
       const timestamp = Date.now()
       const r2Key = `${userId}/${bookmarkId}/snapshot-${timestamp}-v${version}.html`
 
-      // 将 HTML 字符串转换为 UTF-8 编码的字节数组
+      //  HTML  UTF-8 
       const encoder = new TextEncoder()
       const htmlBytes = encoder.encode(html_content)
 
       console.log(`[Snapshot API] Encoded to UTF-8: ${(htmlBytes.length / 1024).toFixed(1)}KB`)
 
-      // 存储配额检查
+      // 
       const quota = await checkR2Quota(db, context.env, htmlBytes.length)
       if (!quota.allowed) {
         const usedGB = quota.usedBytes / (1024 * 1024 * 1024)
@@ -184,7 +184,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         })
       }
 
-      // 上传 UTF-8 编码的字节数组到 R2
+      //  UTF-8  R2
       await bucket.put(r2Key, htmlBytes, {
         httpMetadata: {
           contentType: 'text/html; charset=utf-8',
@@ -203,9 +203,9 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
       const snapshotId = generateNanoId()
       const now = new Date().toISOString()
 
-      // 开始事务（版本号在 INSERT 中原子分配，避免并发竞态）
+      // （ INSERT ，）
       const batch = [
-        // 插入新快照，原子化分配版本号
+        // ，
         db.prepare(
           `INSERT INTO bookmark_snapshots
            (id, bookmark_id, user_id, version, is_latest, content_hash,
@@ -228,14 +228,14 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
           now
         ),
 
-        // 更新旧快照的 is_latest 标志
+        //  is_latest 
         db.prepare(
           `UPDATE bookmark_snapshots 
            SET is_latest = 0 
            WHERE bookmark_id = ? AND id != ?`
         ).bind(bookmarkId, snapshotId),
 
-        // 更新书签表（增加快照计数）
+        // （）
         db.prepare(
           `UPDATE bookmarks 
            SET has_snapshot = 1, 
@@ -247,7 +247,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
 
       await db.batch(batch)
 
-      // 检查并清理旧快照
+      // 
       await cleanupOldSnapshots(db, bucket, bookmarkId, userId)
 
       return success({
@@ -267,7 +267,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
   },
 ]
 
-// 清理旧快照
+// 
 async function cleanupOldSnapshots(
   db: D1Database,
   bucket: R2Bucket,
@@ -275,7 +275,7 @@ async function cleanupOldSnapshots(
   userId: string
 ) {
   try {
-    // 获取保留策略
+    // 
     const bookmarkSettings = await db
       .prepare('SELECT snapshot_retention_count FROM bookmarks WHERE id = ?')
       .bind(bookmarkId)
@@ -291,12 +291,12 @@ async function cleanupOldSnapshots(
       (userSettings?.snapshot_retention_count as number | null) ??
       5
 
-    // -1 表示无限制
+    // -1 
     if (retentionCount === -1) {
       return
     }
 
-    // 获取需要删除的快照
+    // 
     const toDelete = await db
       .prepare(
         `SELECT id, r2_key
@@ -312,7 +312,7 @@ async function cleanupOldSnapshots(
       return
     }
 
-    // 删除 R2 文件（跳过失败的）
+    //  R2 （）
     const deletedIds: unknown[] = []
     for (const snapshot of toDelete.results) {
       try {
@@ -325,7 +325,7 @@ async function cleanupOldSnapshots(
 
     if (deletedIds.length === 0) return
 
-    // 仅删除 R2 文件已成功删除的数据库记录
+    //  R2 
     const placeholders = deletedIds.map(() => '?').join(',')
     await db
       .prepare(`DELETE FROM bookmark_snapshots WHERE id IN (${placeholders})`)

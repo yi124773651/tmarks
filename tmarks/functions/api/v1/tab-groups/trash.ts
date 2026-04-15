@@ -1,7 +1,7 @@
 /**
- * 回收�?API
- * 路径: /api/v1/tab-groups/trash
- * 认证: JWT Token (Bearer)
+ * �?API
+ * : /api/v1/tab-groups/trash
+ * : JWT Token (Bearer)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -24,7 +24,7 @@ interface TabGroupRow {
   updated_at: string
 }
 
-// GET /api/v1/tab-groups/trash - 获取回收站中的标签页�?
+// GET /api/v1/tab-groups/trash - �?
 export const onRequestGet: PagesFunction<Env, string, AuthContext>[] = [
   requireAuth,
   async (context) => {

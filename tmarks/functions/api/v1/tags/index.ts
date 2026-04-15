@@ -14,7 +14,7 @@ interface TagWithCount extends Tag {
   bookmark_count: number
 }
 
-// GET /api/v1/tags - 获取标签列表
+// GET /api/v1/tags - 
 export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -24,7 +24,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
 
       const sortBy = url.searchParams.get('sort') || 'usage' // 'usage', 'name', or 'clicks'
 
-      // 获取标签和使用计�?
+      // �?
       let query = `
         SELECT
           t.*,
@@ -40,7 +40,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
       } else if (sortBy === 'clicks') {
         query += ' ORDER BY t.click_count DESC, LOWER(t.name) ASC'
       } else {
-        // 默认按使用次�?bookmark_count)排序
+        // �?bookmark_count)
         query += ' ORDER BY bookmark_count DESC, LOWER(t.name) ASC'
       }
 
@@ -58,7 +58,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// POST /api/v1/tags - 创建标签
+// POST /api/v1/tags - 
 export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -73,7 +73,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const name = sanitizeString(body.name, 50)
       const color = body.color ? sanitizeString(body.color, 20) : null
 
-      // 检查标签是否已存在
+      // 
       const existing = await context.env.DB.prepare(
         'SELECT id FROM tags WHERE user_id = ? AND LOWER(name) = LOWER(?) AND deleted_at IS NULL'
       )
@@ -87,7 +87,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const now = new Date().toISOString()
       const tagUuid = generateUUID()
 
-      // 创建标签
+      // 
       await context.env.DB.prepare(
         `INSERT INTO tags (id, user_id, name, color, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)`

@@ -1,6 +1,6 @@
 /**
- * 快照图片上传辅助模块
- * 提供 Base64 解码和并发 R2 上传功能
+ * 
+ *  Base64  R2 
  */
 
 import type { R2Bucket } from '@cloudflare/workers-types'
@@ -19,7 +19,7 @@ interface DecodedImage {
   type: string
 }
 
-/** 高效 Base64 解码，避免逐字节 charCodeAt */
+/**  Base64 ， charCodeAt */
 export function decodeBase64Image(image: ImageInput): DecodedImage | null {
   try {
     const base64Data = image.data.includes(',')
@@ -42,8 +42,8 @@ interface UploadResult {
 }
 
 /**
- * 并发分批上传图片到 R2
- * 将 N 张图片按 R2_UPLOAD_CONCURRENCY 分组并发上传
+ *  R2
+ *  N  R2_UPLOAD_CONCURRENCY 
  */
 export async function uploadImagesConcurrently(
   decoded: DecodedImage[],
@@ -88,8 +88,8 @@ export async function uploadImagesConcurrently(
 }
 
 /**
- * 批量替换 HTML 中的占位符 URL
- * 一次遍历替换所有占位符，避免 O(n*m) 的多次 replace
+ *  HTML  URL
+ * ， O(n*m)  replace
  */
 export function replaceImagePlaceholders(
   html: string,

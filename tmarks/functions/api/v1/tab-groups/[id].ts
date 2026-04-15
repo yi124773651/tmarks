@@ -1,7 +1,7 @@
 /**
- * 对外 API - 单个标签页组操作
- * 路径: /api/v1/tab-groups/:id
- * 认证: JWT Token
+ *  API - 
+ * : /api/v1/tab-groups/:id
+ * : JWT Token
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -45,7 +45,7 @@ interface UpdateTabGroupRequest {
   position?: number
 }
 
-// GET /api/v1/tab-groups/:id - 获取单个标签页组详情
+// GET /api/v1/tab-groups/:id - 
 export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -89,7 +89,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// PATCH /api/v1/tab-groups/:id - 更新标签页组
+// PATCH /api/v1/tab-groups/:id - 
 export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -195,7 +195,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// DELETE /api/v1/tab-groups/:id - 删除标签页组
+// DELETE /api/v1/tab-groups/:id - 
 export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {

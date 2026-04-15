@@ -1,6 +1,6 @@
 /**
- * 书签快照 API V2 - 图片单独存储版本
- * 路径: /api/tab/bookmarks/:id/snapshots-v2
+ *  API V2 - 
+ * : /api/tab/bookmarks/:id/snapshots-v2
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -41,7 +41,7 @@ interface CreateSnapshotV2Request {
   force?: boolean
 }
 
-// POST /api/tab/bookmarks/:id/snapshots-v2 - 创建快照（V2版本）
+// POST /api/tab/bookmarks/:id/snapshots-v2 - （V2）
 export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
   requireApiKeyAuth('bookmarks.create'),
   async (context) => {
@@ -63,7 +63,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         return internalError('Storage not configured')
       }
 
-      // 验证书签所有权
+      // 
       const bookmark = await db
         .prepare('SELECT id FROM bookmarks WHERE id = ? AND user_id = ? AND deleted_at IS NULL')
         .bind(bookmarkId, userId)
@@ -73,7 +73,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         return notFound('Bookmark not found')
       }
 
-      // 计算内容哈希 & 检查重复（并行）
+      //  & （）
       const [contentHash, latestSnapshot, versionResult] = await Promise.all([
         sha256(html_content),
         force ? Promise.resolve(null) : db
@@ -93,12 +93,12 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
       const version = (versionResult?.next_version as number) || 1
       const timestamp = Date.now()
 
-      // 1. 解码所有图片（CPU 密集，在上传前完成）
+      // 1. （CPU ，）
       const decoded = images
         .map(decodeBase64Image)
         .filter((d): d is NonNullable<typeof d> => d !== null)
 
-      // 2. 配额检查：一次性计算总大小
+      // 2. ：
       const htmlBytes = new TextEncoder().encode(html_content)
       const totalImageBytes = decoded.reduce((sum, d) => sum + d.bytes.length, 0)
       const totalSize = htmlBytes.length + totalImageBytes
@@ -113,17 +113,17 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         })
       }
 
-      // 3. 并发上传图片到 R2（6个一组）
+      // 3.  R2（6）
       const { uploadedHashes, totalImageSize } = await uploadImagesConcurrently(
         decoded, bucket, userId, bookmarkId, version, timestamp
       )
 
-      // 4. 一次性替换 HTML 中所有占位符
+      // 4.  HTML 
       const processedHtml = replaceImagePlaceholders(
         html_content, uploadedHashes, userId, bookmarkId, version
       )
 
-      // 5. 上传 HTML
+      // 5.  HTML
       const htmlKey = `${userId}/${bookmarkId}/snapshot-${timestamp}-v${version}.html`
       const processedHtmlBytes = new TextEncoder().encode(processedHtml)
 
@@ -139,7 +139,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         },
       })
 
-      // 6. 保存到数据库
+      // 6. 
       const snapshotId = generateNanoId()
       const now = new Date().toISOString()
       const finalSize = processedHtmlBytes.length + totalImageSize
@@ -162,7 +162,7 @@ export const onRequestPost: PagesFunction<Env, 'id', ApiKeyAuthContext>[] = [
         ).bind(now, bookmarkId, userId),
       ])
 
-      // 生成签名 URL（24 小时有效）
+      //  URL（24 ）
       const baseUrl = new URL(context.request.url).origin
       const { signature, expires } = await generateSignedUrl(
         { userId, resourceId: snapshotId, expiresIn: 24 * 3600, action: 'view' },

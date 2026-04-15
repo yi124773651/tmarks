@@ -1,7 +1,7 @@
 /**
- * 公开 API - 单个标签页项操作
- * 路径: /api/v1/tab-groups/items/:id
- * 认证: JWT Token (Bearer)
+ *  API - 
+ * : /api/v1/tab-groups/items/:id
+ * : JWT Token (Bearer)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -31,7 +31,7 @@ interface UpdateTabGroupItemRequest {
   position?: number
 }
 
-// PATCH /api/v1/tab-groups/items/:id - 更新标签页项
+// PATCH /api/v1/tab-groups/items/:id - 
 export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -138,7 +138,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// DELETE /api/v1/tab-groups/items/:id - 删除标签页项
+// DELETE /api/v1/tab-groups/items/:id - 
 export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {

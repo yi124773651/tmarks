@@ -1,7 +1,7 @@
 /**
- * 内部 API - 单个标签页项操作
- * 路径: /api/tab/tab-groups/items/:id
- * 认证: API Key (X-API-Key header) 或 JWT Token (Bearer)
+ *  API - 
+ * : /api/tab/tab-groups/items/:id
+ * : API Key (X-API-Key header)  JWT Token (Bearer)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -31,7 +31,7 @@ interface UpdateTabGroupItemRequest {
   position?: number
 }
 
-// PATCH /api/tab/tab-groups/items/:id - 更新标签页项
+// PATCH /api/tab/tab-groups/items/:id - 
 export const onRequestPatch: PagesFunction<Env, RouteParams, DualAuthContext>[] = [
   requireDualAuth('tab_groups.update'),
   async (context) => {
@@ -135,7 +135,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, DualAuthContext>[] 
   },
 ]
 
-// DELETE /api/tab/tab-groups/items/:id - 删除标签页项
+// DELETE /api/tab/tab-groups/items/:id - 
 export const onRequestDelete: PagesFunction<Env, RouteParams, DualAuthContext>[] = [
   requireDualAuth('tab_groups.delete'),
   async (context) => {

@@ -1,7 +1,7 @@
 /**
- * 永久删除标签页组 API
- * 路径: /api/v1/tab-groups/:id/permanent-delete
- * 认证: JWT Token (Bearer)
+ *  API
+ * : /api/v1/tab-groups/:id/permanent-delete
+ * : JWT Token (Bearer)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -15,7 +15,7 @@ interface TabGroupRow {
   is_deleted: number
 }
 
-// DELETE /api/v1/tab-groups/:id/permanent-delete - 永久删除标签页组
+// DELETE /api/v1/tab-groups/:id/permanent-delete - 
 export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {

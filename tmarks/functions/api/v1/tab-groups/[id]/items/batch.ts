@@ -1,7 +1,7 @@
 /**
- * 公开 API - 批量添加标签页项到分组
- * 路径: /api/v1/tab-groups/:id/items/batch
- * 认证: JWT Token (Bearer)
+ *  API - 
+ * : /api/v1/tab-groups/:id/items/batch
+ * : JWT Token (Bearer)
  */
 
 import type { PagesFunction, D1PreparedStatement } from '@cloudflare/workers-types'
@@ -35,7 +35,7 @@ interface TabGroupItemRow {
   created_at: string
 }
 
-// POST /api/v1/tab-groups/:id/items/batch - 批量添加标签页项
+// POST /api/v1/tab-groups/:id/items/batch - 
 export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {

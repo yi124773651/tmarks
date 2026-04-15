@@ -1,8 +1,8 @@
 /**
- * 单个 API Key 操作端点
- * GET /api/v1/settings/api-keys/:id - 获取 API Key 详情
- * PATCH /api/v1/settings/api-keys/:id - 更新 API Key
- * DELETE /api/v1/settings/api-keys/:id - 撤销 API Key
+ *  API Key 
+ * GET /api/v1/settings/api-keys/:id -  API Key 
+ * PATCH /api/v1/settings/api-keys/:id -  API Key
+ * DELETE /api/v1/settings/api-keys/:id -  API Key
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -20,7 +20,7 @@ interface UpdateApiKeyRequest {
   expires_at?: string | null
 }
 
-// GET /api/v1/settings/api-keys/:id - 获取 API Key 详情
+// GET /api/v1/settings/api-keys/:id -  API Key 
 interface ApiKeyDetail {
   id: string
   key_prefix: string
@@ -55,7 +55,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
         return notFound('API Key not found')
       }
 
-      // 获取使用统计
+      // 
       const stats = await getApiKeyStats(keyId, context.env.DB)
 
       return success({
@@ -70,7 +70,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// PATCH /api/v1/settings/api-keys/:id - 更新 API Key
+// PATCH /api/v1/settings/api-keys/:id -  API Key
 export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -78,7 +78,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
     const keyId = context.params.id
 
     try {
-      // 1. 验证 Key 存在且属于用户
+      // 1.  Key 
       const existingKey = await context.env.DB.prepare(
         `SELECT id FROM api_keys WHERE id = ? AND user_id = ?`
       )
@@ -89,7 +89,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
         return notFound('API Key not found')
       }
 
-      // 2. 解析更新字段
+      // 2. 
       const body = (await context.request.json()) as UpdateApiKeyRequest
       const { name, description, permissions, expires_at, template } = body
 
@@ -133,7 +133,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
         } else {
           let expiresDate: Date
 
-          // 支持相对时间格式 (30d, 90d 等) 和 ISO 日期格式
+          //  (30d, 90d )  ISO 
           if (expires_at.match(/^\d+d$/)) {
             const days = parseInt(expires_at.slice(0, -1))
             expiresDate = new Date()
@@ -160,7 +160,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
         })
       }
 
-      // 3. 执行更新
+      // 3. 
       updates.push("updated_at = datetime('now')")
       values.push(keyId, userId)
 
@@ -172,7 +172,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
         .bind(...values)
         .run()
 
-      // 4. 返回更新后的数据
+      // 4. 
       const updatedKey = await context.env.DB.prepare(
         `SELECT id, key_prefix, name, description, permissions, status,
                 expires_at, last_used_at, last_used_ip, created_at, updated_at
@@ -197,7 +197,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
   },
 ]
 
-// DELETE /api/v1/settings/api-keys/:id - 撤销 API Key
+// DELETE /api/v1/settings/api-keys/:id -  API Key
 export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
   requireAuth,
   async (context) => {
@@ -207,7 +207,7 @@ export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
     const hardDelete = url.searchParams.get('hard') === 'true'
 
     try {
-      // 1. 验证 Key 存在且属于用户
+      // 1.  Key 
       const existingKey = await context.env.DB.prepare(
         `SELECT id FROM api_keys WHERE id = ? AND user_id = ?`
       )
@@ -234,7 +234,7 @@ export const onRequestDelete: PagesFunction<Env, RouteParams, AuthContext>[] = [
         })
       }
 
-      // 2. 标记为已撤销（不删除记录）
+      // 2. （）
       await context.env.DB.prepare(
         `UPDATE api_keys
          SET status = 'revoked', updated_at = datetime('now')

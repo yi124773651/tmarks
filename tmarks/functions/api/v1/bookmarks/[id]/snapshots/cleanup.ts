@@ -1,7 +1,7 @@
 /**
- * 快照批量清理 API
- * 路径: /api/v1/bookmarks/:id/snapshots/cleanup
- * 认证: JWT Token
+ *  API
+ * : /api/v1/bookmarks/:id/snapshots/cleanup
+ * : JWT Token
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'

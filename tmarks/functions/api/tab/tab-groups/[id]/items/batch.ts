@@ -1,7 +1,7 @@
 /**
- * 内部 API - 批量添加标签页项到分组
- * 路径: /api/tab/tab-groups/:id/items/batch
- * 认证: API Key (X-API-Key header) 或 JWT Token (Bearer)
+ *  API - 
+ * : /api/tab/tab-groups/:id/items/batch
+ * : API Key (X-API-Key header)  JWT Token (Bearer)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -25,7 +25,7 @@ interface BatchAddItemsRequest {
   }>
 }
 
-// POST /api/tab/tab-groups/:id/items/batch - 批量添加标签页项
+// POST /api/tab/tab-groups/:id/items/batch - 
 export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] = [
   requireDualAuth('tab_groups.update'),
   async (context) => {
@@ -39,7 +39,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
         return badRequest('items array is required and must not be empty')
       }
 
-      // 验证分组存在且属于当前用户
+      // 
       const group = await context.env.DB.prepare(
         'SELECT id, user_id, title FROM tab_groups WHERE id = ? AND user_id = ?'
       )
@@ -50,7 +50,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
         return notFound('Tab group not found')
       }
 
-      // 获取当前最大 position
+      //  position
       const maxPositionResult = await context.env.DB.prepare(
         'SELECT MAX(position) as max_position FROM tab_group_items WHERE group_id = ?'
       )
@@ -59,7 +59,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
 
       let currentPosition = (maxPositionResult?.max_position ?? -1) + 1
 
-      // 批量插入标签页项
+      // 
       const timestamp = new Date().toISOString()
       const insertPromises = body.items.map((item) => {
         const itemId = generateUUID()
@@ -79,7 +79,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, DualAuthContext>[] =
 
       await Promise.all(insertPromises)
 
-      // 获取添加后的所有标签页项 (with user_id verification for security)
+      //  (with user_id verification for security)
       const { results: items } = await context.env.DB.prepare(
         `SELECT tgi.*
          FROM tab_group_items tgi

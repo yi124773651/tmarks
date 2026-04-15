@@ -63,7 +63,7 @@ export function buildBookmarkListQuery(
   const pinned = pinnedParam ? pinnedParam === 'true' : undefined
   const sortField = sortBy === 'updated' ? 'b.updated_at' : 'b.created_at'
 
-  // 构建查询
+  // 
   let query = `
     SELECT DISTINCT b.*
     FROM bookmarks b
@@ -71,19 +71,19 @@ export function buildBookmarkListQuery(
   `
   const params: SQLParam[] = [userId]
 
-  // 置顶过滤
+  // 
   if (pinned !== undefined) {
     query += ` AND b.is_pinned = ?`
     params.push(pinned ? 1 : 0)
   }
 
-  // 关键词搜�?  if (keyword) {
+  // �?  if (keyword) {
     query += ` AND (b.title LIKE ? OR b.description LIKE ? OR b.url LIKE ?)`
     const searchPattern = `%${keyword}%`
     params.push(searchPattern, searchPattern, searchPattern)
   }
 
-  // 标签过滤（交集逻辑：必须包含所有选中的标签）
+  // （：）
   if (tags) {
     const tagIds = tags.split(',').filter(Boolean)
     if (tagIds.length > 0) {
@@ -98,7 +98,7 @@ export function buildBookmarkListQuery(
     }
   }
 
-  // 游标分页
+  // 
   if (parsedCursor) {
     if (pinned === true) {
       query += ` AND (
@@ -147,7 +147,7 @@ export function buildBookmarkListQuery(
     params.push(pageCursor)
   }
 
-  // 排序（置顶书签按 pin_order 排序�?  let orderBy = ''
+  // （ pin_order �?  let orderBy = ''
   switch (sortBy) {
     case 'updated':
       orderBy = 'ORDER BY b.is_pinned DESC, CASE WHEN b.is_pinned = 1 THEN b.pin_order ELSE NULL END ASC, b.updated_at DESC, b.id DESC'

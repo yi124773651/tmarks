@@ -1,20 +1,20 @@
 /**
- * 安全中间�?
- * 提供安全头、CSP策略、输入验证等安全功能
+ * Security Middleware
+ * Provides security headers, CSP policies, input validation, and other security features
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
 
 /**
- * 安全头中间件
+ * Security Headers Middleware
  */
 export const securityHeaders: PagesFunction = async (context) => {
   const response = await context.next()
   
-  // 创建新的响应�?
+  // Create new response headers
   const newHeaders = new Headers(response.headers)
   
-  // 检查是否是快照查看路径（这些路径需要宽松的 CSP�?
+  // Check if this is a snapshot view path (these paths need relaxed CSP)
   const url = new URL(context.request.url)
   const isSnapshotView = url.pathname.includes('/snapshots/') && 
                          (url.pathname.includes('/view') || url.searchParams.has('sig'))
@@ -47,33 +47,33 @@ export const securityHeaders: PagesFunction = async (context) => {
     "form-action 'none'",
   ].join('; ')
 
-  // 安全头配�?
+  // Security headers configuration
   const securityHeaders = {
-    // 防止点击劫持（快照查看除外）
+    // Prevent clickjacking (except for snapshot views)
     ...(!isSnapshotView && { 'X-Frame-Options': 'DENY' }),
     
-    // 防止 MIME 类型嗅探
+    // Prevent MIME type sniffing
     'X-Content-Type-Options': 'nosniff',
     
-    // XSS 保护
+    // XSS protection
     'X-XSS-Protection': '1; mode=block',
     
-    // 引用者策�?
+    // Referrer policy
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     
-    // 权限策略
+    // Permissions policy
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
     
-    // 内容安全策略
+    // Content Security Policy
     'Content-Security-Policy': isSnapshotView ? snapshotCsp : standardCsp,
     
-    // HSTS (仅在 HTTPS 环境�?
+    // HSTS (only in HTTPS environment)
     ...(context.request.url.startsWith('https://') && {
       'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload'
     })
   }
   
-  // 添加安全头（跳过 undefined 值）
+  // Add security headers (skip undefined values)
   Object.entries(securityHeaders).forEach(([key, value]) => {
     if (value) {
       newHeaders.set(key, value)
@@ -88,15 +88,15 @@ export const securityHeaders: PagesFunction = async (context) => {
 }
 
 /**
- * CORS 配置中间�?
+ * CORS Configuration Middleware
  */
 export const corsHeaders: PagesFunction = async (context) => {
-  // 从环境变量获取允许的�?
+  // Get allowed origins from environment variables
   const allowedOriginsEnv = (context.env as { CORS_ALLOWED_ORIGINS?: string })?.CORS_ALLOWED_ORIGINS
 
   const cors = getCorsPolicy(context.request, allowedOriginsEnv)
 
-  // 处理预检请求
+  // Handle preflight requests
   if (context.request.method === 'OPTIONS') {
     const headers: Record<string, string> = {
       'Access-Control-Allow-Origin': cors.origin,
@@ -118,7 +118,7 @@ export const corsHeaders: PagesFunction = async (context) => {
   const response = await context.next()
   const newHeaders = new Headers(response.headers)
 
-  // 添加 CORS �?
+  // Add CORS headers
   newHeaders.set('Access-Control-Allow-Origin', cors.origin)
   if (cors.allowCredentials) {
     newHeaders.set('Access-Control-Allow-Credentials', 'true')
@@ -135,9 +135,9 @@ export const corsHeaders: PagesFunction = async (context) => {
 }
 
 /**
- * 获取允许的源
- * @param request 请求对象
- * @param allowedOriginsEnv 环境变量中的允许源列表（逗号分隔�?
+ * Get allowed origins
+ * @param request Request object
+ * @param allowedOriginsEnv Allowed origins list from environment variables (comma-separated)
  */
 function getCorsPolicy(request: Request, allowedOriginsEnv?: string): { origin: string; allowCredentials: boolean } {
   const origin = request.headers.get('Origin')
@@ -153,13 +153,13 @@ function getCorsPolicy(request: Request, allowedOriginsEnv?: string): { origin: 
 
   const allowedOrigins = [...defaultOrigins, ...envOrigins]
 
-  // 浏览器扩�? 必须�?CORS_ALLOWED_ORIGINS 配置中显式列�?
-  // 例如: chrome-extension://abcdef123456,extension://abcdef123456
+  // Browser extensions must be explicitly listed in CORS_ALLOWED_ORIGINS
+  // Example: chrome-extension://abcdef123456,extension://abcdef123456
   if (origin && (origin.startsWith('chrome-extension://') || origin.startsWith('extension://'))) {
     if (allowedOrigins.includes(origin)) {
       return { origin, allowCredentials: true }
     }
-    // 开发环境回退: 仅在 localhost 来源时允许未配置白名单的扩展
+    // Development fallback: allow unconfigured extensions only when localhost origins exist
     const hasExtensionWhitelist = allowedOrigins.some(
       o => o.startsWith('chrome-extension://') || o.startsWith('extension://')
     )
@@ -181,7 +181,7 @@ function getCorsPolicy(request: Request, allowedOriginsEnv?: string): { origin: 
 }
 
 /**
- * 输入验证中间�?
+ * Input Validation Middleware
  */
 export function validateInput<T>(validator: (data: unknown) => data is T) {
   return async (context: { request: Request; next: () => Promise<Response>; validatedData?: T }) => {
@@ -204,7 +204,7 @@ export function validateInput<T>(validator: (data: unknown) => data is T) {
           )
         }
 
-        // 将验证后的数据附加到 context
+        // Attach validated data to context
         context.validatedData = body
       } catch {
         return new Response(
@@ -227,32 +227,32 @@ export function validateInput<T>(validator: (data: unknown) => data is T) {
 }
 
 /**
- * 速率限制中间件（基于 IP�?
- * 注意：此函数当前仅作为占位符，实际速率限制逻辑�?rate-limit.ts 中实�?
+ * Rate Limiting Middleware (IP-based)
+ * Note: This function currently serves as a placeholder, actual rate limiting logic is implemented in rate-limit.ts
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function rateLimitByIP(_limit: number, _windowSeconds: number) {
   return async (context: { request: Request; next: () => Promise<Response> }) => {
-    // 获取 IP 地址用于将来的速率限制实现
+    // Get IP address for future rate limiting implementation
     // const ip = context.request.headers.get('CF-Connecting-IP') ||
     //            context.request.headers.get('X-Forwarded-For') ||
     //            'unknown'
 
-    // 这里可以集成到现有的速率限制系统
-    // 暂时返回继续执行
+    // This can be integrated into the existing rate limiting system
+    // For now, continue execution
     return context.next()
   }
 }
 
 /**
- * 日志记录中间�?
+ * Request Logging Middleware
  */
 export const requestLogger: PagesFunction = async (context) => {
   const start = Date.now()
   const ip = context.request.headers.get('CF-Connecting-IP') || 'unknown'
   const userAgent = context.request.headers.get('User-Agent') || 'unknown'
 
-  // 从日�?URL 中移除敏感查询参�?
+  // Remove sensitive query parameters from logged URL
   const logUrl = new URL(context.request.url)
   for (const param of ['sig', 'token', 'api_key', 'key']) {
     if (logUrl.searchParams.has(param)) {
@@ -265,7 +265,7 @@ export const requestLogger: PagesFunction = async (context) => {
     const response = await context.next()
     const duration = Date.now() - start
 
-    // 记录请求日志
+    // Log request
     console.log(JSON.stringify({
       timestamp: new Date().toISOString(),
       method: context.request.method,
@@ -280,7 +280,7 @@ export const requestLogger: PagesFunction = async (context) => {
   } catch (error) {
     const duration = Date.now() - start
 
-    // 记录错误日志
+    // Log error
     console.error(JSON.stringify({
       timestamp: new Date().toISOString(),
       method: context.request.method,
@@ -296,9 +296,9 @@ export const requestLogger: PagesFunction = async (context) => {
 }
 
 /**
- * 组合安全中间�?
+ * Combined Security Middleware
  */
 export const securityMiddleware: PagesFunction = async (context) => {
-  // 依次应用安全中间�?
+  // Apply security middleware in sequence
   return securityHeaders(context)
 }

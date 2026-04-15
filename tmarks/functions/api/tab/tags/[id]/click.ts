@@ -1,7 +1,7 @@
 /**
- * 对外 API - 标签点击计数
- * 路径: /api/tab/tags/:id/click
- * 认证: API Key (X-API-Key header)
+ *  API - 
+ * : /api/tab/tags/:id/click
+ * : API Key (X-API-Key header)
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
@@ -9,7 +9,7 @@ import type { Env, RouteParams } from '../../lib/types'
 import { success, notFound, internalError } from '../../lib/response'
 import { requireApiKeyAuth, ApiKeyAuthContext } from '../../../../middleware/api-key-auth-pages'
 
-// PATCH /api/tags/:id/click - 增加标签点击计数
+// PATCH /api/tags/:id/click - 
 export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[] = [
   requireApiKeyAuth('tags.update'),
   async (context) => {
@@ -17,7 +17,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[
     const tagId = context.params.id
 
     try {
-      // 检查标签是否存在
+      // 
       const existing = await context.env.DB.prepare(
         'SELECT id FROM tags WHERE id = ? AND user_id = ? AND deleted_at IS NULL'
       )
@@ -30,7 +30,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[
 
       const now = new Date().toISOString()
 
-      // 增加点击计数并更新最后点击时间
+      // 
       await context.env.DB.prepare(
         `UPDATE tags 
          SET click_count = click_count + 1, 

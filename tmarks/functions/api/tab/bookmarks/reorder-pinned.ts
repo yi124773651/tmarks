@@ -1,5 +1,5 @@
 /**
- * 批量更新置顶书签排序
+ * 
  * POST /api/tab/bookmarks/reorder-pinned
  */
 
@@ -23,7 +23,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
         return badRequest('bookmark_ids is required and must be a non-empty array')
       }
 
-      // 验证所有书签都属于当前用户且已置顶
+      // 
       const placeholders = body.bookmark_ids.map(() => '?').join(',')
       const { results: bookmarks } = await context.env.DB.prepare(
         `SELECT id FROM bookmarks 
@@ -39,7 +39,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
         return badRequest('Some bookmarks are not found, not pinned, or do not belong to you')
       }
 
-      // 批量更新排序
+      // 
       const now = new Date().toISOString()
       const updates = body.bookmark_ids.map((id, index) => {
         return context.env.DB.prepare(

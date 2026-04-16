@@ -18,12 +18,13 @@ interface TabGroupRow {
 }
 
 // GET /api/tab/tab-groups/trash - Retrieve trashed tab groups
+export const onRequestGet: PagesFunction<Env, string, DualAuthContext>[] = [
   requireDualAuth('tab_groups.read'),
   async (context) => {
     const userId = context.data.user_id
 
     try {
-      
+
       const { results: groups } = await context.env.DB.prepare(
         'SELECT * FROM tab_groups WHERE user_id = ? AND is_deleted = 1 ORDER BY deleted_at DESC'
       )
@@ -65,4 +66,3 @@ interface TabGroupRow {
     }
   },
 ]
-

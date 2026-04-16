@@ -23,6 +23,7 @@ export const onRequest: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const now = new Date().toISOString()
 
       if (body.revoke_all) {
+        await context.env.DB.prepare(
 
           `UPDATE auth_tokens
            SET revoked_at = ?

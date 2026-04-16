@@ -13,7 +13,7 @@ import { generateUUID } from '../../../lib/crypto'
 import { normalizeBookmark } from '../../../lib/bookmark-utils'
 import { invalidatePublicShareCache } from '../../shared/cache'
 import { uploadCoverImageToR2 } from '../../../lib/image-upload'
-import { createOrLinkTags } from '../../../lib/tags'
+import { getValidTagIds, replaceBookmarkTags, replaceBookmarkTagsByNames } from '../../../lib/tags'
 import { 
   buildBookmarkListQuery, 
   fetchBookmarkTags, 
@@ -133,6 +133,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
       )
         .bind(userId, url)
         .first<{ id: string; deleted_at: string | null }>()
+      const restoredDeletedBookmark = Boolean(existing?.deleted_at)
 
       const now = new Date().toISOString()
       let bookmarkId: string
@@ -215,10 +216,6 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
         )
           .bind(title, description, coverImage, favicon, isPinned, isPublic, now, bookmarkId, userId)
           .run()
-
-        await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ? AND user_id = ?')
-          .bind(bookmarkId, userId)
-          .run()
       } else {
 
         bookmarkId = generateUUID()
@@ -231,16 +228,13 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
       }
 
       // 
-      if (body.tags && body.tags.length > 0) {
-        await createOrLinkTags(context.env.DB, bookmarkId, body.tags, userId)
-      } else if (body.tag_ids && body.tag_ids.length > 0) {
-        for (const tagId of body.tag_ids) {
-          await context.env.DB.prepare(
-            'INSERT INTO bookmark_tags (bookmark_id, tag_id, user_id, created_at) VALUES (?, ?, ?, ?)'
-          )
-            .bind(bookmarkId, tagId, userId, now)
-            .run()
-        }
+      if (body.tags !== undefined) {
+        await replaceBookmarkTagsByNames(context.env.DB, bookmarkId, body.tags, userId, now)
+      } else if (body.tag_ids !== undefined) {
+        const validTagIds = await getValidTagIds(context.env.DB, userId, body.tag_ids)
+        await replaceBookmarkTags(context.env.DB, bookmarkId, userId, validTagIds, now)
+      } else if (restoredDeletedBookmark) {
+        await replaceBookmarkTags(context.env.DB, bookmarkId, userId, [], now)
       }
 
       const bookmarkRow = await context.env.DB.prepare('SELECT * FROM bookmarks WHERE id = ? AND user_id = ?')

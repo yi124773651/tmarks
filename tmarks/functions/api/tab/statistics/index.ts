@@ -19,7 +19,7 @@ export const onRequestGet: PagesFunction<Env, string, DualAuthContext>[] = [
     const days = parseInt(url.searchParams.get('days') || '30')
 
     try {
-      
+
       const startDate = new Date()
       startDate.setDate(startDate.getDate() - days)
       const startDateStr = startDate.toISOString().split('T')[0]
@@ -34,18 +34,20 @@ export const onRequestGet: PagesFunction<Env, string, DualAuthContext>[] = [
         domains,
         groupSizes
       ] = await Promise.all([
-        
+
         context.env.DB.prepare(
           'SELECT COUNT(*) as count FROM tab_groups WHERE user_id = ? AND is_deleted = 0'
         )
           .bind(userId)
           .all<{ count: number }>(),
 
+        context.env.DB.prepare(
           'SELECT COUNT(*) as count FROM tab_groups WHERE user_id = ? AND is_deleted = 1'
         )
           .bind(userId)
           .all<{ count: number }>(),
 
+        context.env.DB.prepare(
           'SELECT COUNT(*) as count FROM tab_group_items WHERE group_id IN (SELECT id FROM tab_groups WHERE user_id = ?)'
         )
           .bind(userId)
@@ -67,6 +69,7 @@ export const onRequestGet: PagesFunction<Env, string, DualAuthContext>[] = [
           .bind(userId, startDateStr)
           .all<{ date: string; count: number }>(),
 
+        context.env.DB.prepare(
           `SELECT DATE(created_at) as date, COUNT(*) as count 
            FROM tab_group_items 
            WHERE group_id IN (SELECT id FROM tab_groups WHERE user_id = ?) 
@@ -147,4 +150,3 @@ export const onRequestGet: PagesFunction<Env, string, DualAuthContext>[] = [
     }
   },
 ]
-

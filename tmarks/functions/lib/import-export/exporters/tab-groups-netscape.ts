@@ -1,5 +1,3 @@
-/**
-
 import type { ExportTabGroup, ExportTabGroupItem } from '../../../../shared/import-export-types'
 
 type EscapeHtml = (text: string) => string
@@ -99,4 +97,3 @@ export function generateTabGroupsNetscapeSection(params: {
   html += `    </DL><p>\n`
   return html
 }
-

@@ -4,6 +4,7 @@ import { success, badRequest, notFound, noContent, internalError } from '../../.
 import { requireAuth, AuthContext } from '../../../middleware/auth'
 import { isValidUrl, sanitizeString } from '../../../lib/validation'
 import { normalizeBookmark } from '../../../lib/bookmark-utils'
+import { getValidTagIds, replaceBookmarkTags, replaceBookmarkTagsByNames } from '../../../lib/tags'
 import { invalidatePublicShareCache } from '../../shared/cache'
 
 interface UpdateBookmarkRequest {
@@ -98,28 +99,10 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
 
       // 
       if (body.tags !== undefined) {
-        const { createOrLinkTags } = await import('../../../lib/tags')
-        await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ? AND user_id = ?')
-          .bind(bookmarkId, userId)
-          .run()
-        if (body.tags.length > 0) {
-          await createOrLinkTags(context.env.DB, bookmarkId, body.tags, userId)
-        }
+        await replaceBookmarkTagsByNames(context.env.DB, bookmarkId, body.tags, userId, now)
       } else if (body.tag_ids !== undefined) {
-        const stmts = [
-          context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ? AND user_id = ?')
-            .bind(bookmarkId, userId),
-        ]
-        if (body.tag_ids.length > 0) {
-          for (const tagId of body.tag_ids) {
-            stmts.push(
-              context.env.DB.prepare(
-                'INSERT INTO bookmark_tags (bookmark_id, tag_id, user_id, created_at) VALUES (?, ?, ?, ?)'
-              ).bind(bookmarkId, tagId, userId, now)
-            )
-          }
-        }
-        await context.env.DB.batch(stmts)
+        const validTagIds = await getValidTagIds(context.env.DB, userId, body.tag_ids)
+        await replaceBookmarkTags(context.env.DB, bookmarkId, userId, validTagIds, now)
       }
 
       // 

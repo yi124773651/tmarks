@@ -1,41 +1,85 @@
 import { generateUUID } from './crypto'
-/**
- * Create or link tags to a bookmark
- * Creates new tags if they don't exist, links existing tags
- * 
- * @param db - D1 Database instance
- * @param bookmarkId - Bookmark ID
- * @param tagNames - Array of tag names
- * @param userId - User ID
- */
-export async function createOrLinkTags(
+
+function normalizeTagNames(tagNames: string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+
+  for (const rawName of tagNames) {
+    const name = rawName.trim()
+    if (!name) continue
+
+    const key = name.toLowerCase()
+    if (seen.has(key)) continue
+
+    seen.add(key)
+    normalized.push(name)
+  }
+
+  return normalized
+}
+
+function uniqueTagIds(tagIds: string[]): string[] {
+  const seen = new Set<string>()
+  const uniqueIds: string[] = []
+
+  for (const rawId of tagIds) {
+    const tagId = rawId.trim()
+    if (!tagId || seen.has(tagId)) continue
+
+    seen.add(tagId)
+    uniqueIds.push(tagId)
+  }
+
+  return uniqueIds
+}
+
+export async function getValidTagIds(
   db: D1Database,
-  bookmarkId: string,
+  userId: string,
+  tagIds: string[]
+): Promise<string[]> {
+  const requestedIds = uniqueTagIds(tagIds)
+  if (requestedIds.length === 0) return []
+
+  const placeholders = requestedIds.map(() => '?').join(',')
+  const { results } = await db.prepare(
+    `SELECT id
+     FROM tags
+     WHERE id IN (${placeholders}) AND user_id = ? AND deleted_at IS NULL`
+  )
+    .bind(...requestedIds, userId)
+    .all<{ id: string }>()
+
+  const validIds = new Set((results || []).map((row) => row.id))
+  return requestedIds.filter((tagId) => validIds.has(tagId))
+}
+
+export async function resolveOrCreateTagIds(
+  db: D1Database,
+  userId: string,
   tagNames: string[],
-  userId: string
-): Promise<void> {
-  if (!tagNames || tagNames.length === 0) return
-  const now = new Date().toISOString()
-  // Optimization: Use batch operations to avoid N+1 queries
-  const trimmedNames = tagNames.map(name => name.trim()).filter(name => name.length > 0)
-  if (trimmedNames.length === 0) return
-  // Query existing tags using IN clause
-  const placeholders = trimmedNames.map(() => '?').join(',')
-  const { results: existingTags } = await db
-    .prepare(`SELECT id, name FROM tags WHERE user_id = ? AND LOWER(name) IN (${placeholders}) AND deleted_at IS NULL`)
-    .bind(userId, ...trimmedNames.map(name => name.toLowerCase()))
+  now: string = new Date().toISOString()
+): Promise<string[]> {
+  const normalizedNames = normalizeTagNames(tagNames)
+  if (normalizedNames.length === 0) return []
+
+  const placeholders = normalizedNames.map(() => '?').join(',')
+  const { results: existingTags } = await db.prepare(
+    `SELECT id, name
+     FROM tags
+     WHERE user_id = ? AND LOWER(name) IN (${placeholders}) AND deleted_at IS NULL`
+  )
+    .bind(userId, ...normalizedNames.map((name) => name.toLowerCase()))
     .all<{ id: string; name: string }>()
-  // Build tag name to ID map (case-insensitive)
+
   const tagMap = new Map<string, string>()
   for (const tag of existingTags || []) {
     tagMap.set(tag.name.toLowerCase(), tag.id)
   }
-  // Find tags that need to be created
-  const tagsToCreate = trimmedNames.filter(name => !tagMap.has(name.toLowerCase()))
-  // Create new tags
+
+  const tagsToCreate = normalizedNames.filter((name) => !tagMap.has(name.toLowerCase()))
   if (tagsToCreate.length > 0) {
-    // Use batch insert (D1 supports batch operations)
-    const insertStatements = tagsToCreate.map(name => {
+    const insertStatements = tagsToCreate.map((name) => {
       const tagId = generateUUID()
       tagMap.set(name.toLowerCase(), tagId)
       return db
@@ -44,18 +88,61 @@ export async function createOrLinkTags(
     })
     await db.batch(insertStatements)
   }
-  // Link tags to bookmark
-  const linkStatements = trimmedNames.map(name => {
-    const tagId = tagMap.get(name.toLowerCase())
-    if (!tagId) {
-      console.error(`[createOrLinkTags] Tag ID not found for: ${name}`)
-      return null
-    }
-    return db
+
+  return normalizedNames
+    .map((name) => tagMap.get(name.toLowerCase()))
+    .filter((tagId): tagId is string => Boolean(tagId))
+}
+
+export async function createOrLinkTags(
+  db: D1Database,
+  bookmarkId: string,
+  tagNames: string[],
+  userId: string
+): Promise<void> {
+  const now = new Date().toISOString()
+  const tagIds = await resolveOrCreateTagIds(db, userId, tagNames, now)
+  if (tagIds.length === 0) return
+
+  const linkStatements = tagIds.map((tagId) =>
+    db
       .prepare('INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id, user_id, created_at) VALUES (?, ?, ?, ?)')
       .bind(bookmarkId, tagId, userId, now)
-  }).filter(stmt => stmt !== null) as D1PreparedStatement[]
-  if (linkStatements.length > 0) {
-    await db.batch(linkStatements)
+  )
+  await db.batch(linkStatements)
+}
+
+export async function replaceBookmarkTags(
+  db: D1Database,
+  bookmarkId: string,
+  userId: string,
+  tagIds: string[],
+  now: string = new Date().toISOString()
+): Promise<void> {
+  const normalizedIds = uniqueTagIds(tagIds)
+  const statements: D1PreparedStatement[] = [
+    db.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ? AND user_id = ?')
+      .bind(bookmarkId, userId),
+  ]
+
+  for (const tagId of normalizedIds) {
+    statements.push(
+      db
+        .prepare('INSERT OR IGNORE INTO bookmark_tags (bookmark_id, tag_id, user_id, created_at) VALUES (?, ?, ?, ?)')
+        .bind(bookmarkId, tagId, userId, now)
+    )
   }
+
+  await db.batch(statements)
+}
+
+export async function replaceBookmarkTagsByNames(
+  db: D1Database,
+  bookmarkId: string,
+  tagNames: string[],
+  userId: string,
+  now: string = new Date().toISOString()
+): Promise<void> {
+  const tagIds = await resolveOrCreateTagIds(db, userId, tagNames, now)
+  await replaceBookmarkTags(db, bookmarkId, userId, tagIds, now)
 }

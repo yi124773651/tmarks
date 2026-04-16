@@ -11,6 +11,7 @@ import { requireApiKeyAuth, ApiKeyAuthContext } from '../../../../middleware/api
 import { isValidUrl, sanitizeString } from '../../../lib/validation'
 import { generateUUID } from '../../../lib/crypto'
 import { invalidatePublicShareCache } from '../../../shared/cache'
+import { replaceBookmarkTags, replaceBookmarkTagsByNames } from '../../../lib/tags'
 
 interface BatchCreateBookmarkItem {
   title: string
@@ -127,6 +128,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
           )
             .bind(userId, url)
             .first<{ id: string; deleted_at: string | null }>()
+          const restoredDeletedBookmark = Boolean(existing?.deleted_at)
 
           let bookmarkId: string
 
@@ -146,10 +148,6 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
             )
               .bind(title, description, coverImage, favicon, isPinned, isArchived, isPublic, now, bookmarkId, userId)
               .run()
-
-            await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ? AND user_id = ?')
-              .bind(bookmarkId, userId)
-              .run()
           } else {
             bookmarkId = generateUUID()
             await context.env.DB.prepare(
@@ -160,9 +158,10 @@ export const onRequestPost: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[]
               .run()
           }
 
-          if (item.tags && item.tags.length > 0) {
-            const { createOrLinkTags } = await import('../../../lib/tags')
-            await createOrLinkTags(context.env.DB, bookmarkId, item.tags, userId)
+          if (item.tags !== undefined) {
+            await replaceBookmarkTagsByNames(context.env.DB, bookmarkId, item.tags, userId, now)
+          } else if (restoredDeletedBookmark) {
+            await replaceBookmarkTags(context.env.DB, bookmarkId, userId, [], now)
           }
 
           result.success++

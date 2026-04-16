@@ -1,7 +1,7 @@
 import type { D1Database } from '../../../lib/types'
 import { isValidUrl, sanitizeString } from '../../../lib/validation'
 import { generateUUID } from '../../../lib/crypto'
-import { createOrLinkTags } from '../../../lib/tags'
+import { replaceBookmarkTags, replaceBookmarkTagsByNames } from '../../../lib/tags'
 
 export type BatchCreateResult = {
   success: number
@@ -33,33 +33,30 @@ export async function handleBatchCreate(
     failed: 0,
     skipped: 0,
     total: bookmarks.length,
-    errors: [] as Array<{ index: number; url: string; error: string }>,
-    created_bookmarks: [] as Array<{ id: string; url: string; title: string }>
+    errors: [],
+    created_bookmarks: [],
   }
 
-  // 
   for (let i = 0; i < bookmarks.length; i++) {
     const item = bookmarks[i]
 
     try {
-      // 
       if (!item.title || !item.url) {
         result.failed++
-        result.errors!.push({
+        result.errors.push({
           index: i,
           url: item.url || '',
-          error: 'Title and URL are required'
+          error: 'Title and URL are required',
         })
         continue
       }
 
-      //  URL 
       if (!isValidUrl(item.url)) {
         result.failed++
-        result.errors!.push({
+        result.errors.push({
           index: i,
           url: item.url,
-          error: 'Invalid URL format'
+          error: 'Invalid URL format',
         })
         continue
       }
@@ -73,10 +70,12 @@ export async function handleBatchCreate(
       const isArchived = item.is_archived ? 1 : 0
       const isPublic = item.is_public ? 1 : 0
 
+      const existing = await db.prepare(
         'SELECT id, deleted_at FROM bookmarks WHERE user_id = ? AND url = ?'
       )
         .bind(userId, url)
         .first<{ id: string; deleted_at: string | null }>()
+      const restoredDeletedBookmark = Boolean(existing?.deleted_at)
 
       let bookmarkId: string
 
@@ -96,10 +95,6 @@ export async function handleBatchCreate(
         )
           .bind(title, description, coverImage, favicon, isPinned, isArchived, isPublic, now, bookmarkId)
           .run()
-
-        await db.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ? AND user_id = ?')
-          .bind(bookmarkId, userId)
-          .run()
       } else {
         bookmarkId = generateUUID()
         await db.prepare(
@@ -110,29 +105,29 @@ export async function handleBatchCreate(
           .run()
       }
 
-      // 
-      if (item.tags && item.tags.length > 0) {
-        await createOrLinkTags(db, bookmarkId, item.tags, userId)
+      if (item.tags !== undefined) {
+        await replaceBookmarkTagsByNames(db, bookmarkId, item.tags, userId, now)
+      } else if (restoredDeletedBookmark) {
+        await replaceBookmarkTags(db, bookmarkId, userId, [], now)
       }
 
       result.success++
       result.created_bookmarks.push({ id: bookmarkId, url, title })
-
     } catch (error) {
       result.failed++
-      result.errors!.push({
+      result.errors.push({
         index: i,
         url: item.url || '',
-        error: 'Failed to create bookmark'
+        error: 'Failed to create bookmark',
       })
       console.error(`[Batch] Failed to create bookmark ${i}:`, error)
     }
   }
 
+  if (result.errors.length === 0) {
     delete result.errors
   }
 
-  // 
   if (result.success > 0) {
     await db.prepare(
       `UPDATE tags

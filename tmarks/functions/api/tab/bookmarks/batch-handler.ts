@@ -8,6 +8,7 @@ import type { ApiKeyAuthContext } from '../../../middleware/api-key-auth-pages'
 import { success, badRequest } from '../../../lib/response'
 import { isValidUrl, sanitizeString } from '../../../lib/validation'
 import { generateUUID } from '../../../lib/crypto'
+import { replaceBookmarkTags, replaceBookmarkTagsByNames } from '../../../lib/tags'
 import { invalidatePublicShareCache } from '../../shared/cache'
 
 interface BatchCreateBookmarkItem {
@@ -109,6 +110,7 @@ export async function batchCreateBookmarks(
       )
         .bind(userId, url)
         .first<{ id: string; deleted_at: string | null }>()
+      const restoredDeletedBookmark = Boolean(existing?.deleted_at)
 
       let bookmarkId: string
 
@@ -140,10 +142,6 @@ export async function batchCreateBookmarks(
             bookmarkId
           )
           .run()
-
-        await context.env.DB.prepare('DELETE FROM bookmark_tags WHERE bookmark_id = ?')
-          .bind(bookmarkId)
-          .run()
       } else {
 
         bookmarkId = generateUUID()
@@ -170,9 +168,10 @@ export async function batchCreateBookmarks(
       }
 
       // 
-      if (item.tags && item.tags.length > 0) {
-        const { createOrLinkTags } = await import('../../../lib/tags')
-        await createOrLinkTags(context.env.DB, bookmarkId, item.tags, userId)
+      if (item.tags !== undefined) {
+        await replaceBookmarkTagsByNames(context.env.DB, bookmarkId, item.tags, userId, now)
+      } else if (restoredDeletedBookmark) {
+        await replaceBookmarkTags(context.env.DB, bookmarkId, userId, [], now)
       }
 
       result.success++

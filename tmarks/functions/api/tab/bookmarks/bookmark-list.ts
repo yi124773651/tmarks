@@ -77,6 +77,7 @@ export function buildBookmarkListQuery(
     params.push(pinned ? 1 : 0)
   }
 
+  if (keyword) {
     query += ` AND (b.title LIKE ? OR b.description LIKE ? OR b.url LIKE ?)`
     const searchPattern = `%${keyword}%`
     params.push(searchPattern, searchPattern, searchPattern)
@@ -146,6 +147,7 @@ export function buildBookmarkListQuery(
     params.push(pageCursor)
   }
 
+  let orderBy = ''
   switch (sortBy) {
     case 'updated':
       orderBy = 'ORDER BY b.is_pinned DESC, CASE WHEN b.is_pinned = 1 THEN b.pin_order ELSE NULL END ASC, b.updated_at DESC, b.id DESC'

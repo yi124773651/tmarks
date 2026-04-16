@@ -36,6 +36,10 @@ export class HtmlExporter implements Exporter {
   private generateHtml(data: TMarksExportData, options?: ExportOptions): string {
     const includeMetadata = options?.include_metadata ?? true
     const includeTags = options?.include_tags ?? true
+    const bookmarksByFolder = this.organizeBookmarksByFolder(
+      data.bookmarks as Array<Record<string, unknown>>,
+      includeTags
+    )
 
     const tabGroupsSection = generateTabGroupsNetscapeSection({
       tabGroups: data.tab_groups,
@@ -63,11 +67,12 @@ ${includeMetadata ? this.generateMetadataComment(data) : ''}
 
   private organizeBookmarksByFolder(bookmarks: Array<Record<string, unknown>>, includeTags: boolean): Map<string, Array<Record<string, unknown>>> {
     const folderMap = new Map<string, Array<Record<string, unknown>>>()
+    folderMap.set('Uncategorized', [])
 
     bookmarks.forEach(bookmark => {
       if (!includeTags || bookmark.tags.length === 0) {
         // 
-        const uncategorized = folderMap.get('
+        const uncategorized = folderMap.get('Uncategorized')
         if (uncategorized) {
           uncategorized.push(bookmark)
         }
@@ -86,9 +91,9 @@ ${includeMetadata ? this.generateMetadataComment(data) : ''}
     })
     
     // 
-    const uncategorized = folderMap.get('
+    const uncategorized = folderMap.get('Uncategorized')
     if (uncategorized && uncategorized.length === 0) {
-      folderMap.delete('
+      folderMap.delete('Uncategorized')
     }
     
     return folderMap

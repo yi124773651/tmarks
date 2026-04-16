@@ -10,6 +10,7 @@ import { success, badRequest, notFound, noContent, internalError } from '../../.
 import { requireApiKeyAuth, ApiKeyAuthContext } from '../../../middleware/api-key-auth-pages'
 import { isValidUrl, sanitizeString } from '../../../lib/validation'
 import { normalizeBookmark } from '../../../lib/bookmark-utils'
+import { getValidTagIds, replaceBookmarkTags, replaceBookmarkTagsByNames } from '../../../lib/tags'
 import { invalidatePublicShareCache } from '../../shared/cache'
 
 interface UpdateBookmarkRequest {
@@ -157,43 +158,10 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, ApiKeyAuthContext>[
       }
 
       if (body.tags !== undefined) {
-        const { createOrLinkTags } = await import('../../../lib/tags')
-
-        await context.env.DB.prepare(
-          'DELETE FROM bookmark_tags WHERE bookmark_id = ? AND user_id = ?'
-        )
-          .bind(bookmarkId, userId)
-          .run()
-
-        if (body.tags.length > 0) {
-          await createOrLinkTags(context.env.DB, bookmarkId, body.tags, userId)
-        }
+        await replaceBookmarkTagsByNames(context.env.DB, bookmarkId, body.tags, userId, now)
       } else if (body.tag_ids !== undefined) {
-        await context.env.DB.prepare(
-          'DELETE FROM bookmark_tags WHERE bookmark_id = ? AND user_id = ?'
-        )
-          .bind(bookmarkId, userId)
-          .run()
-
-        if (body.tag_ids.length > 0) {
-          // Verify all tag_ids belong to this user
-          const placeholders = body.tag_ids.map(() => '?').join(',')
-          const { results: validTags } = await context.env.DB.prepare(
-            `SELECT id FROM tags WHERE id IN (${placeholders}) AND user_id = ? AND deleted_at IS NULL`
-          )
-            .bind(...body.tag_ids, userId)
-            .all<{ id: string }>()
-
-          const validIds = new Set((validTags ?? []).map(t => t.id))
-          for (const tagId of body.tag_ids) {
-            if (!validIds.has(tagId)) continue
-            await context.env.DB.prepare(
-              'INSERT INTO bookmark_tags (bookmark_id, tag_id, user_id, created_at) VALUES (?, ?, ?, ?)'
-            )
-              .bind(bookmarkId, tagId, userId, now)
-              .run()
-          }
-        }
+        const validTagIds = await getValidTagIds(context.env.DB, userId, body.tag_ids)
+        await replaceBookmarkTags(context.env.DB, bookmarkId, userId, validTagIds, now)
       }
 
       const bookmarkRow = await context.env.DB.prepare(
